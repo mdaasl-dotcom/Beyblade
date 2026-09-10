@@ -36,6 +36,25 @@ testing, but testing on a phone requires HTTPS (e.g. serve via `ngrok`, or
 any static host with TLS) — browsers block camera access on plain HTTP for
 any host other than localhost.
 
+### Windows 11 desktop app
+
+The app also ships as an installable Windows desktop app (via Electron), so
+you can run it in its own window using your PC's webcam instead of opening a
+browser tab.
+
+Requires [Node.js](https://nodejs.org) installed on Windows first. Then, in
+a terminal (PowerShell or Command Prompt) in this project folder:
+
+```powershell
+npm install
+npm run electron      # launch it in a window, for quick testing
+npm run dist:win      # build an installable .exe (output in dist/)
+```
+
+`npm run dist:win` produces a Windows installer under `dist/`. Run it once to
+install "Beyblade XR Stage" like any other desktop app; it'll ask for webcam
+permission the first time you click "Start Camera".
+
 ## Using it
 
 1. **Start Camera** — grants camera access and shows the live feed.
