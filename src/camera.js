@@ -29,12 +29,20 @@ export class CameraFeed {
     this.stream = null;
   }
 
-  async start() {
+  /**
+   * @param {string|null} deviceId specific camera to use (from
+   *   listVideoInputs()); omit to use the browser/OS default.
+   */
+  async start(deviceId = null) {
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error("Camera API not available in this browser.");
     }
+    this.stop();
+    const videoConstraints = deviceId
+      ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      : { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } };
     this.stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+      video: videoConstraints,
       audio: false,
     });
     this.videoEl.srcObject = this.stream;
@@ -53,6 +61,17 @@ export class CameraFeed {
   stop() {
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;
+  }
+
+  /** Lists available cameras. Device labels are only populated once camera
+   *  permission has been granted at least once (a browser privacy rule), so
+   *  call this after the first successful start(). Useful when more than one
+   *  camera is available — e.g. a laptop's built-in webcam alongside a phone
+   *  used as a webcam via an app like Camo/EpocCam/Iriun. */
+  async listVideoInputs() {
+    if (!navigator.mediaDevices?.enumerateDevices) return [];
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return devices.filter((d) => d.kind === "videoinput");
   }
 
   get videoWidth() {

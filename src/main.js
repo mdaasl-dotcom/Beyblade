@@ -20,6 +20,7 @@ const btnCalibrateB = document.getElementById("btn-calibrate-b");
 const btnStartMatch = document.getElementById("btn-start-match");
 const btnResetRound = document.getElementById("btn-reset-round");
 const btnEnterAr = document.getElementById("btn-enter-ar");
+const cameraSelect = document.getElementById("camera-select");
 
 const winsAEl = document.getElementById("wins-a");
 const winsBEl = document.getElementById("wins-b");
@@ -80,10 +81,55 @@ btnStartCamera.addEventListener("click", async () => {
     setStatus("Camera live. Calibrate the stadium boundary next.");
     btnCalibrateStadium.disabled = false;
     if (await isArSupported()) btnEnterAr.disabled = false;
+    await populateCameraSelect();
     requestAnimationFrame(loop);
   } catch (err) {
     setStatus(`Camera error: ${err.message}`);
     btnStartCamera.disabled = false;
+  }
+});
+
+/** Shows a camera picker once more than one video input is available —
+ *  e.g. a laptop's built-in webcam alongside a phone used as a webcam via
+ *  an app like Camo/EpocCam/Iriun. Device labels only become visible after
+ *  permission has been granted at least once, hence calling this after the
+ *  first successful camera.start(). */
+async function populateCameraSelect() {
+  const devices = await camera.listVideoInputs();
+  if (devices.length < 2) return;
+
+  cameraSelect.innerHTML = "";
+  devices.forEach((d, i) => {
+    const opt = document.createElement("option");
+    opt.value = d.deviceId;
+    opt.textContent = d.label || `Camera ${i + 1}`;
+    cameraSelect.appendChild(opt);
+  });
+  cameraSelect.hidden = false;
+}
+
+cameraSelect.addEventListener("change", async () => {
+  setStatus("Switching camera…");
+  try {
+    await camera.start(cameraSelect.value);
+    // Prior calibration was tied to the old camera's view/colors and is no
+    // longer valid, so clear it rather than silently tracking the wrong spot.
+    boundary.reset();
+    ringOutWatcher.reset();
+    blobA.targetHsv = null;
+    blobA.centroid = null;
+    blobB.targetHsv = null;
+    blobB.centroid = null;
+    battle.reset();
+    btnCalibrateStadium.disabled = false;
+    btnCalibrateA.disabled = true;
+    btnCalibrateB.disabled = true;
+    btnStartMatch.disabled = true;
+    btnResetRound.disabled = true;
+    setStatus("Camera switched. Re-calibrate the stadium and Beyblades to match the new view.");
+    helpText.textContent = "Tap 'Calibrate Stadium' again for the new camera view.";
+  } catch (err) {
+    setStatus(`Camera error: ${err.message}`);
   }
 });
 
