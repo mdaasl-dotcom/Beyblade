@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Beyblade XR Stage</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <video id="camera-feed" autoplay playsinline muted></video>
+    <canvas id="hud-canvas"></canvas>
+
+    <header id="topbar">
+      <div class="scoreboard" id="scoreboard">
+        <div class="player" id="player-a">
+          <span class="swatch" id="swatch-a"></span>
+          <span class="name" contenteditable="true" id="name-a">Blader A</span>
+          <span class="wins" id="wins-a">0</span>
+        </div>
+        <div class="vs">VS</div>
+        <div class="player" id="player-b">
+          <span class="name" contenteditable="true" id="name-b">Blader B</span>
+          <span class="swatch" id="swatch-b"></span>
+          <span class="wins" id="wins-b">0</span>
+        </div>
+      </div>
+      <div id="status-line">Tap "Start Camera" to begin.</div>
+    </header>
+
+    <div id="event-toast" class="hidden"></div>
+
+    <footer id="controls">
+      <div class="step-row">
+        <button id="btn-start-camera">1. Start Camera</button>
+        <button id="btn-calibrate-stadium" disabled>2. Calibrate Stadium</button>
+        <button id="btn-calibrate-a" disabled>3. Calibrate Blader A</button>
+        <button id="btn-calibrate-b" disabled>4. Calibrate Blader B</button>
+      </div>
+      <div class="step-row">
+        <button id="btn-start-match" disabled>Start Match</button>
+        <button id="btn-reset-round" disabled>Reset Round</button>
+        <button id="btn-enter-ar" disabled>Enter AR</button>
+      </div>
+      <div id="help-text">
+        Stadium calibration: tap 6-8 points around the rim of the stadium bowl, then press "Finish".
+      </div>
+      <div id="log-panel"></div>
+    </footer>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

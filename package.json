@@ -1,0 +1,9 @@
+{
+  "name": "beyblade-xr-stage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Camera-based AR tracking overlay for a physical Beyblade Stadium: spin/RPM, position, collisions, ring-out, and battle stats, with an optional WebXR anchor view.",
+  "scripts": {
+    "start": "npx --yes http-server -p 8080 -c-1 ."
+  }
+}
