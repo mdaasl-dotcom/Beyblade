@@ -7,7 +7,8 @@
 // RPM readout as an estimate, not a certified measurement.
 
 const RING_SAMPLES = 24; // angular samples used for rotation correlation
-const SEARCH_MARGIN = 1.8; // how much the ROI grows around the last-known blob radius
+const SEARCH_MARGIN = 2.5; // how much the ROI grows around the last-known blob radius
+const LOCK_CONFIDENCE_THRESHOLD = 0.15; // below this, search the whole frame to reacquire
 
 function rgbToHsv(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -82,8 +83,14 @@ export class BlobTracker {
     const { data, width, height } = frame;
     const [targetH] = this.targetHsv;
 
+    // Only trust the small region-of-interest search while we still have a
+    // confident lock. Once confidence has decayed (the Beyblade moved out of
+    // the ROI, motion blur, etc.) fall back to scanning the whole frame so a
+    // lost target can be reacquired instead of the tracker staying stuck
+    // forever re-checking the same empty patch of the frame.
+    const locked = this.centroid && this.confidence > LOCK_CONFIDENCE_THRESHOLD;
     let minX = 0, minY = 0, maxX = width, maxY = height;
-    if (this.centroid) {
+    if (locked) {
       const r = this.radius * SEARCH_MARGIN + 12;
       minX = Math.max(0, Math.floor(this.centroid.x - r));
       minY = Math.max(0, Math.floor(this.centroid.y - r));
@@ -109,6 +116,13 @@ export class BlobTracker {
     const minPixels = 4;
     if (count < minPixels) {
       this.confidence = Math.max(0, this.confidence - 0.15);
+      if (this.confidence === 0) {
+        // Fully lost: drop the stale centroid (so the HUD stops drawing a
+        // frozen crosshair) and clear rotation history; the next frame will
+        // scan the whole frame above to try to find the Beyblade again.
+        this.centroid = null;
+        this._prevSignal = null;
+      }
       return;
     }
 
@@ -117,7 +131,7 @@ export class BlobTracker {
     const variance = Math.max(1, sumX2 / count - cx * cx);
     const newRadius = Math.min(40, Math.max(4, Math.sqrt(variance) * 1.4));
 
-    if (this.centroid && this._lastTimestamp != null) {
+    if (locked && this._lastTimestamp != null) {
       const dt = Math.max(1, timestampMs - this._lastTimestamp) / 1000;
       this.velocity = { x: (cx - this.centroid.x) / dt, y: (cy - this.centroid.y) / dt };
     }

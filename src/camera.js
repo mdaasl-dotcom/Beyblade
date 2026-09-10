@@ -1,6 +1,24 @@
 // Handles getUserMedia camera access and exposes raw pixel access via an
 // offscreen processing canvas that the tracker reads from every frame.
 
+// The <video> element is displayed with CSS `object-fit: cover`, which crops
+// it to fill the screen instead of showing the full frame. grabFrame() below
+// still processes the *full* native frame (uncropped), so any point given in
+// on-screen coordinates has to be corrected for that crop before it lines up
+// with process-canvas pixels — otherwise taps (and the drawn crosshair) drift
+// away from what's actually visible whenever the camera's aspect ratio
+// doesn't match the screen's, which is nearly always the case on a phone.
+export function coverMapping(videoWidth, videoHeight, displayWidth, displayHeight) {
+  const scale = Math.max(displayWidth / videoWidth, displayHeight / videoHeight);
+  const renderedWidth = videoWidth * scale;
+  const renderedHeight = videoHeight * scale;
+  return {
+    scale,
+    offsetX: (renderedWidth - displayWidth) / 2,
+    offsetY: (renderedHeight - displayHeight) / 2,
+  };
+}
+
 export class CameraFeed {
   constructor(videoEl, { processWidth = 240 } = {}) {
     this.videoEl = videoEl;
@@ -52,19 +70,28 @@ export class CameraFeed {
     return this.processCtx.getImageData(0, 0, this.processWidth, this.processHeight);
   }
 
-  /** Maps a point in full-resolution overlay-canvas space (matching the
-   *  video's displayed size) to processing-canvas pixel coordinates. */
+  /** Maps a point in on-screen (display) coordinates — where the video is
+   *  shown cropped via object-fit:cover — to processing-canvas pixel
+   *  coordinates, which represent the full uncropped native frame. */
   displayToProcess(x, y, displayWidth, displayHeight) {
-    return {
-      x: (x / displayWidth) * this.processWidth,
-      y: (y / displayHeight) * this.processHeight,
-    };
+    const { scale, offsetX, offsetY } = coverMapping(
+      this.videoWidth, this.videoHeight, displayWidth, displayHeight
+    );
+    const videoX = (x + offsetX) / scale;
+    const videoY = (y + offsetY) / scale;
+    const procScale = this.processWidth / this.videoWidth;
+    return { x: videoX * procScale, y: videoY * procScale };
   }
 
+  /** Inverse of displayToProcess: maps a processing-canvas point back to
+   *  where it should be drawn on screen given the object-fit:cover crop. */
   processToDisplay(x, y, displayWidth, displayHeight) {
-    return {
-      x: (x / this.processWidth) * displayWidth,
-      y: (y / this.processHeight) * displayHeight,
-    };
+    const procScale = this.processWidth / this.videoWidth;
+    const videoX = x / procScale;
+    const videoY = y / procScale;
+    const { scale, offsetX, offsetY } = coverMapping(
+      this.videoWidth, this.videoHeight, displayWidth, displayHeight
+    );
+    return { x: videoX * scale - offsetX, y: videoY * scale - offsetY };
   }
 }
