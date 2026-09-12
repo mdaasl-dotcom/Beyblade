@@ -33,7 +33,7 @@ html, body {
   height: 100%;
   object-fit: cover;
   background: #000;
-  transform: scaleX(1);
+  transform: scale(var(--zoom, 1));
 }
 
 #hud-canvas {
@@ -42,6 +42,7 @@ html, body {
   width: 100%;
   height: 100%;
   touch-action: none;
+  transform: scale(var(--zoom, 1));
 }
 
 #topbar {
@@ -162,6 +163,23 @@ button.armed { border-color: #ffd23f; color: #ffd23f; }
 #tolerance-row[hidden] { display: none; }
 #tolerance-label { white-space: nowrap; }
 #tolerance-slider { flex: 1; max-width: 220px; }
+
+#zoom-row[hidden] { display: none; }
+#zoom-row { align-items: center; }
+#zoom-label {
+  min-width: 3.4em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+#btn-zoom-in, #btn-zoom-out {
+  font-size: 1.1em;
+  font-weight: 700;
+  min-width: 2.6em;
+  padding: 6px 10px;
+}
 
 #help-text {
   text-align: center;
