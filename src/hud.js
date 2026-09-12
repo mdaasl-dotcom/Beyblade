@@ -96,12 +96,14 @@ function drawTrail(ctx, camera, blob, color, dispW, dispH) {
   ctx.save();
   ctx.lineCap = "round";
   ctx.strokeStyle = color;
+  ctx.shadowColor = color;
   for (let i = 1; i < trail.length; i++) {
     const a = toDisplay(camera, trail[i - 1], dispW, dispH);
     const b = toDisplay(camera, trail[i], dispW, dispH);
     const t = i / trail.length; // 0 (oldest) -> 1 (newest)
-    ctx.globalAlpha = 0.06 + t * 0.35;
-    ctx.lineWidth = 1.5 + t * 3.5;
+    ctx.globalAlpha = 0.25 + t * 0.65;
+    ctx.lineWidth = 2.5 + t * 5;
+    ctx.shadowBlur = 6 * t;
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
