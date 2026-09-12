@@ -33,14 +33,6 @@ const RPM_TRUST_SETTLE_MS = 600;
 const TRAIL_DURATION_MS = 1200;
 const TRAIL_MAX_POINTS = 200; // hard cap so a runaway high frame rate can't grow this unbounded
 
-// Separate from the short glowing trail above: this one keeps the Top's
-// entire path for the whole round (cleared only when a round starts), so
-// players can see the full line it carved through the stadium. Capped and
-// halved (keeping every other point) rather than dropping the oldest half
-// outright, so a long round still shows its full shape at lower resolution
-// instead of losing its early portion entirely.
-const FULL_TRAIL_MAX_POINTS = 1500;
-
 /** Greedily groups matched pixels into separate blobs by proximity. Needed
  *  when two Tops are calibrated to the *same* color (e.g. both wearing
  *  identical stickers): a naive single average over every matching pixel in
@@ -113,7 +105,6 @@ export class BlobTracker {
     this._lastAngleOffset = 0;
     this._lastTimestamp = null;
     this._history = []; // recent centroids for smoothing/velocity
-    this._fullHistory = []; // whole-round path, for the full-trail recap
   }
 
   _isMatch(h, s, v) {
@@ -175,7 +166,6 @@ export class BlobTracker {
     this._prevSignal = null;
     this._rotationLastTimestamp = null;
     this._history = [];
-    this._fullHistory = [];
     // Shiny metal/gray/white/near-black spots have low saturation, so hue
     // barely means anything there — color tracking will struggle to tell
     // that apart from similarly dull background/lighting. Flag it so the UI
@@ -288,11 +278,6 @@ export class BlobTracker {
       this._history.splice(0, this._history.length - TRAIL_MAX_POINTS);
     }
 
-    this._fullHistory.push({ x: cx, y: cy, t: timestampMs });
-    if (this._fullHistory.length > FULL_TRAIL_MAX_POINTS) {
-      this._fullHistory = this._fullHistory.filter((_, i) => i % 2 === 0);
-    }
-
     this._updateRotation(frame, timestampMs);
   }
 
@@ -379,20 +364,6 @@ export class BlobTracker {
   /** Recent centroids (oldest first), for drawing an on-screen motion trail. */
   get trail() {
     return this._history;
-  }
-
-  /** The Top's whole path so far this round (oldest first), for drawing a
-   *  full recap trail rather than just the last ~1.2s. */
-  get fullTrail() {
-    return this._fullHistory;
-  }
-
-  /** Clears both trails without touching calibration/lock state — call this
-   *  when a fresh round starts so the recap trail doesn't carry over the
-   *  previous round's path. */
-  clearTrail() {
-    this._history = [];
-    this._fullHistory = [];
   }
 
   isActive() {
