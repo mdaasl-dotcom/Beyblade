@@ -49,6 +49,22 @@ export class StadiumBoundary {
     const sum = this.points.reduce((a, p) => ({ x: a.x + p.x, y: a.y + p.y }), { x: 0, y: 0 });
     return { x: sum.x / this.points.length, y: sum.y / this.points.length };
   }
+
+  /** Largest distance between any two calibration points, in
+   *  processing-canvas pixels — an estimate of the physical bowl's
+   *  rim-to-rim diameter, used to convert real-world measurements (e.g.
+   *  "1cm") into pixels for this specific camera setup/zoom/distance. */
+  get diameterPx() {
+    let max = 0;
+    const pts = this.points;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const d = Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
+        if (d > max) max = d;
+      }
+    }
+    return max;
+  }
 }
 
 /** Tracks consecutive out-of-bounds frames per blob name so a single noisy

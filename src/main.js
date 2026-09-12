@@ -127,6 +127,13 @@ const blobA = new BlobTracker("A", "accent-a");
 const blobB = new BlobTracker("B", "accent-b");
 const battle = new BattleEngine({ onEvent: handleBattleEvent });
 
+// A standard full-size Beystadium is about 40cm rim-to-rim. Used with the
+// calibrated boundary's pixel diameter to convert real-world distances
+// (like the clash gap in battleEngine.js) into pixels for this camera
+// setup, so it stays accurate regardless of zoom or camera distance.
+const STADIUM_DIAMETER_CM = 40;
+let pixelsPerCm = 0;
+
 let calibrationMode = null; // null | "stadium" | "calibrate-a" | "calibrate-b"
 let running = false;
 let currentFrame = null;
@@ -264,6 +271,7 @@ cameraSelect.addEventListener("change", async () => {
     // Prior calibration was tied to the old camera's view/colors and is no
     // longer valid, so clear it rather than silently tracking the wrong spot.
     boundary.reset();
+    pixelsPerCm = 0;
     ringOutWatcher.reset();
     blobA.targetHsv = null;
     blobA.centroid = null;
@@ -293,6 +301,7 @@ btnCalibrateStadium.addEventListener("click", () => {
   } else {
     if (boundary.finish()) {
       calibrationMode = null;
+      pixelsPerCm = boundary.diameterPx / STADIUM_DIAMETER_CM;
       btnCalibrateStadium.classList.remove("armed");
       btnCalibrateStadium.textContent = "2. Calibrate Stadium";
       btnCalibrateA.disabled = false;
@@ -414,7 +423,7 @@ function loop(timestamp) {
   const ringOutA = ringOutWatcher.check(blobA);
   const ringOutB = ringOutWatcher.check(blobB);
 
-  battle.update({ blobA, blobB, ringOutA, ringOutB, now: timestamp });
+  battle.update({ blobA, blobB, ringOutA, ringOutB, now: timestamp, pixelsPerCm });
 
   // The debug-mask scan touches every pixel in the frame for both trackers —
   // too expensive to redo on every single render frame, especially on top of

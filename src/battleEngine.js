@@ -10,6 +10,11 @@ export const MatchState = {
 };
 
 const COLLISION_COOLDOWN_MS = 600;
+// A clash fires once the Tops' edges are within this real-world gap of each
+// other, not only on a dead-on hit — converted to pixels per-frame via
+// pixelsPerCm (derived from the calibrated stadium's known diameter), so it
+// stays accurate regardless of camera zoom/distance.
+const CLASH_GAP_CM = 1;
 const STAMINA_OUT_RPM = 50; // below this we consider a Top to have stopped
 const STAMINA_OUT_CONFIRM_MS = 1500; // must stay below threshold this long
 const MIN_RPM_TO_ARM_STAMINA_CHECK = 120; // must have been spinning meaningfully first
@@ -55,8 +60,11 @@ export class BattleEngine {
     this.onEvent(entry);
   }
 
-  /** Call once per animation frame while a round is in progress. */
-  update({ blobA, blobB, ringOutA, ringOutB, now }) {
+  /** Call once per animation frame while a round is in progress.
+   *  @param {number} [pixelsPerCm] derived from the calibrated stadium's
+   *    known real-world diameter; without it, clash detection falls back to
+   *    a plain "blobs overlapping" check. */
+  update({ blobA, blobB, ringOutA, ringOutB, now, pixelsPerCm }) {
     if (this.state !== MatchState.IN_PROGRESS) return;
 
     if (ringOutA || ringOutB) {
@@ -67,7 +75,10 @@ export class BattleEngine {
 
     if (blobA.isActive() && blobB.isActive()) {
       const dist = Math.hypot(blobA.centroid.x - blobB.centroid.x, blobA.centroid.y - blobB.centroid.y);
-      const contactDist = (blobA.radius + blobB.radius) * 0.9;
+      const clashGapPx = pixelsPerCm > 0 ? CLASH_GAP_CM * pixelsPerCm : 0;
+      const contactDist = pixelsPerCm > 0
+        ? blobA.radius + blobB.radius + clashGapPx
+        : (blobA.radius + blobB.radius) * 0.9;
       if (dist <= contactDist && now - this._lastCollisionAt > COLLISION_COOLDOWN_MS) {
         this._lastCollisionAt = now;
         this._collisionCount++;
