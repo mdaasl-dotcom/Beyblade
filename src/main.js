@@ -22,6 +22,10 @@ const btnResetRound = document.getElementById("btn-reset-round");
 const btnEnterAr = document.getElementById("btn-enter-ar");
 const btnDebugView = document.getElementById("btn-debug-view");
 const cameraSelect = document.getElementById("camera-select");
+const zoomRow = document.getElementById("zoom-row");
+const btnZoomIn = document.getElementById("btn-zoom-in");
+const btnZoomOut = document.getElementById("btn-zoom-out");
+const zoomLabel = document.getElementById("zoom-label");
 const toleranceRow = document.getElementById("tolerance-row");
 const toleranceSlider = document.getElementById("tolerance-slider");
 const toleranceLabel = document.getElementById("tolerance-label");
@@ -158,6 +162,29 @@ toleranceSlider.addEventListener("input", () => {
   toleranceLabel.textContent = `Match tightness: ${value}°`;
 });
 
+// ---------- Zoom ----------
+// Purely a display-side magnification (CSS transform on the video + HUD
+// canvas together) so the user can frame the stadium better or tap
+// calibration points more precisely. Tracking always scans the full native
+// camera frame regardless of zoom level.
+
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 3;
+const ZOOM_STEP = 0.2;
+let zoom = ZOOM_MIN;
+
+function setZoom(value) {
+  zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+  document.documentElement.style.setProperty("--zoom", zoom.toFixed(2));
+  zoomLabel.textContent = `${zoom.toFixed(1)}x`;
+  btnZoomOut.disabled = zoom <= ZOOM_MIN;
+  btnZoomIn.disabled = zoom >= ZOOM_MAX;
+}
+
+btnZoomIn.addEventListener("click", () => setZoom(zoom + ZOOM_STEP));
+btnZoomOut.addEventListener("click", () => setZoom(zoom - ZOOM_STEP));
+setZoom(ZOOM_MIN);
+
 function setStatus(text) {
   statusLine.textContent = text;
 }
@@ -199,6 +226,8 @@ btnStartCamera.addEventListener("click", async () => {
     running = true;
     setStatus("Camera live. Calibrate the stadium boundary next.");
     btnCalibrateStadium.disabled = false;
+    zoomRow.hidden = false;
+    setZoom(ZOOM_MIN);
     if (await isArSupported()) btnEnterAr.disabled = false;
     await populateCameraSelect();
     requestAnimationFrame(loop);
@@ -231,6 +260,7 @@ cameraSelect.addEventListener("change", async () => {
   setStatus("Switching camera…");
   try {
     await camera.start(cameraSelect.value);
+    setZoom(ZOOM_MIN);
     // Prior calibration was tied to the old camera's view/colors and is no
     // longer valid, so clear it rather than silently tracking the wrong spot.
     boundary.reset();
