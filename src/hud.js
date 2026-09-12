@@ -87,26 +87,49 @@ function drawBoundary(ctx, camera, boundary, dispW, dispH, highlight) {
   ctx.restore();
 }
 
+/** Light moving-average smoothing so small frame-to-frame tracking jitter
+ *  doesn't turn into a zigzag when drawn — purely a rendering concern, the
+ *  tracker's own raw positions (used for velocity/ring-out/etc.) are
+ *  untouched. */
+function smoothPoints(points, windowRadius = 1) {
+  const out = [];
+  for (let i = 0; i < points.length; i++) {
+    let sx = 0, sy = 0, n = 0;
+    for (let j = Math.max(0, i - windowRadius); j <= Math.min(points.length - 1, i + windowRadius); j++) {
+      sx += points[j].x; sy += points[j].y; n++;
+    }
+    out.push({ x: sx / n, y: sy / n });
+  }
+  return out;
+}
+
 /** Draws a fading motion trail behind a Beyblade using its recent tracked
- *  positions (tracker.js keeps a short rolling history for this). Drawn
- *  before the crosshair so the crosshair sits on top of it. */
+ *  positions (tracker.js keeps a short rolling history for this), rendered
+ *  as a smooth curve — quadratic Bezier segments through the midpoints of
+ *  each pair of (smoothed) points, a standard trick for turning a polyline
+ *  into a natural-looking curve without full spline math. Drawn before the
+ *  crosshair so the crosshair sits on top of it. */
 function drawTrail(ctx, camera, blob, color, dispW, dispH) {
   const trail = blob?.trail;
-  if (!trail || trail.length < 2) return;
+  if (!trail || trail.length < 3) return;
+  const pts = smoothPoints(trail.map((p) => toDisplay(camera, p, dispW, dispH)));
+
   ctx.save();
   ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   ctx.strokeStyle = color;
   ctx.shadowColor = color;
-  for (let i = 1; i < trail.length; i++) {
-    const a = toDisplay(camera, trail[i - 1], dispW, dispH);
-    const b = toDisplay(camera, trail[i], dispW, dispH);
-    const t = i / trail.length; // 0 (oldest) -> 1 (newest)
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
+    const midA = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+    const midB = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+    const t = i / pts.length; // 0 (oldest) -> 1 (newest)
     ctx.globalAlpha = 0.25 + t * 0.65;
     ctx.lineWidth = 2.5 + t * 5;
     ctx.shadowBlur = 6 * t;
     ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
+    ctx.moveTo(midA.x, midA.y);
+    ctx.quadraticCurveTo(p1.x, p1.y, midB.x, midB.y);
     ctx.stroke();
   }
   ctx.restore();
