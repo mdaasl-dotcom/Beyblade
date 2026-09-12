@@ -4,6 +4,7 @@ import { StadiumBoundary, RingOutWatcher } from "./stadiumCalibration.js";
 import { BattleEngine, MatchState } from "./battleEngine.js";
 import { renderHud } from "./hud.js";
 import { isArSupported, XrStadiumView } from "./xrView.js";
+import { AiDetector } from "./aiDetector.js";
 
 const videoEl = document.getElementById("camera-feed");
 const canvas = document.getElementById("hud-canvas");
@@ -21,6 +22,7 @@ const btnStartMatch = document.getElementById("btn-start-match");
 const btnResetRound = document.getElementById("btn-reset-round");
 const btnEnterAr = document.getElementById("btn-enter-ar");
 const btnDebugView = document.getElementById("btn-debug-view");
+const btnAiMode = document.getElementById("btn-ai-mode");
 const cameraSelect = document.getElementById("camera-select");
 const toleranceRow = document.getElementById("tolerance-row");
 const toleranceSlider = document.getElementById("tolerance-slider");
@@ -131,6 +133,46 @@ let debugFrameCounter = 0;
 let cachedDebugPoints = { a: [], b: [] };
 const DEBUG_RECOMPUTE_EVERY = 4; // frames between full-frame debug-mask scans
 const xrView = new XrStadiumView();
+const aiDetector = new AiDetector();
+let aiMode = false;
+
+// AI detection replaces the color-scanning step with a small model trained
+// on real footage of these tops — it doesn't need per-Top color
+// calibration, since it already knows roughly what "a top" looks like. If
+// the model fails to load (e.g. it hasn't been trained/published yet),
+// this fails gracefully and the app just keeps using the color tracker —
+// nothing about the existing flow is disturbed either way.
+btnAiMode.addEventListener("click", async () => {
+  if (aiMode) {
+    aiMode = false;
+    btnAiMode.classList.remove("armed");
+    btnAiMode.textContent = "Try AI Detection (Beta)";
+    btnCalibrateA.disabled = !boundary.isReady;
+    btnCalibrateB.disabled = !boundary.isReady;
+    helpText.textContent = "Back to color tracking — calibrate each Player's color if you haven't already.";
+    maybeEnableStartMatch();
+    return;
+  }
+
+  btnAiMode.disabled = true;
+  setStatus("Loading AI model…");
+  try {
+    if (!aiDetector.ready) await aiDetector.load();
+    aiMode = true;
+    btnAiMode.disabled = false;
+    btnAiMode.classList.add("armed");
+    btnAiMode.textContent = "AI Mode: ON (tap for Color Mode)";
+    // AI mode doesn't need per-Top color calibration.
+    btnCalibrateA.disabled = true;
+    btnCalibrateB.disabled = true;
+    helpText.textContent = "AI detection active — no color calibration needed for the Tops.";
+    setStatus("AI mode ready. Calibrate the stadium if you haven't, then start the match.");
+    maybeEnableStartMatch();
+  } catch (err) {
+    btnAiMode.disabled = false;
+    setStatus(`Couldn't load the AI model (${err.message}) — staying on color tracking.`);
+  }
+});
 
 btnDebugView.addEventListener("click", () => {
   debugView = !debugView;
@@ -199,6 +241,7 @@ btnStartCamera.addEventListener("click", async () => {
     running = true;
     setStatus("Camera live. Calibrate the stadium boundary next.");
     btnCalibrateStadium.disabled = false;
+    btnAiMode.disabled = false;
     if (await isArSupported()) btnEnterAr.disabled = false;
     await populateCameraSelect();
     requestAnimationFrame(loop);
@@ -265,9 +308,15 @@ btnCalibrateStadium.addEventListener("click", () => {
       calibrationMode = null;
       btnCalibrateStadium.classList.remove("armed");
       btnCalibrateStadium.textContent = "2. Calibrate Stadium";
-      btnCalibrateA.disabled = false;
-      helpText.textContent = "Stadium set. Now calibrate each Top.";
-      setStatus("Stadium calibrated. Tap 'Calibrate Player A', then tap the Top in view.");
+      if (aiMode) {
+        helpText.textContent = "Stadium set. AI detection is on, so you're ready to go.";
+        setStatus("Stadium calibrated. Tap 'Start Match' to begin.");
+      } else {
+        btnCalibrateA.disabled = false;
+        helpText.textContent = "Stadium set. Now calibrate each Top.";
+        setStatus("Stadium calibrated. Tap 'Calibrate Player A', then tap the Top in view.");
+      }
+      maybeEnableStartMatch();
     } else {
       helpText.textContent = "Need at least 3 points to close the stadium boundary.";
     }
@@ -330,7 +379,8 @@ canvas.addEventListener("pointerdown", (e) => {
 });
 
 function maybeEnableStartMatch() {
-  if (blobA.targetHsv && blobB.targetHsv && boundary.isReady) {
+  const topsReady = aiMode || (blobA.targetHsv && blobB.targetHsv);
+  if (topsReady && boundary.isReady) {
     btnStartMatch.disabled = false;
   }
 }
@@ -371,8 +421,19 @@ function loop(timestamp) {
   if (!running) return;
   currentFrame = camera.grabFrame();
 
-  blobA.updatePosition(currentFrame, timestamp);
-  blobB.updatePosition(currentFrame, timestamp);
+  if (aiMode) {
+    // Both trackers get the SAME candidate points — like two Tops sharing a
+    // calibrated color in color mode, each tracker independently picks
+    // whichever point is closest to its own last-known position, so
+    // identity naturally stays consistent frame to frame without the model
+    // needing to know "which top is which".
+    const aiPoints = aiDetector.detect(videoEl, camera.processWidth, camera.processHeight);
+    blobA.updatePositionFromPoints(currentFrame, aiPoints, timestamp);
+    blobB.updatePositionFromPoints(currentFrame, aiPoints, timestamp);
+  } else {
+    blobA.updatePosition(currentFrame, timestamp);
+    blobB.updatePosition(currentFrame, timestamp);
+  }
 
   const ringOutA = ringOutWatcher.check(blobA);
   const ringOutB = ringOutWatcher.check(blobB);

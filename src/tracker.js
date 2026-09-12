@@ -63,6 +63,37 @@ function clusterPoints(points, mergeRadius) {
   }));
 }
 
+/** Same idea as clusterPoints, but for a small list of {x,y,weight} points
+ *  (e.g. AI-model heatmap peaks) rather than thousands of matched pixels —
+ *  weight biases the cluster centroid toward the more confident point(s)
+ *  instead of every point counting equally. */
+function clusterWeightedPoints(points, mergeRadius) {
+  const clusters = [];
+  for (const p of points) {
+    const w = p.weight ?? 1;
+    let target = null;
+    for (const c of clusters) {
+      const cx = c.sumX / c.sumW, cy = c.sumY / c.sumW;
+      if (Math.hypot(p.x - cx, p.y - cy) <= mergeRadius) { target = c; break; }
+    }
+    if (!target) {
+      target = { sumX: 0, sumY: 0, sumX2: 0, sumW: 0, count: 0 };
+      clusters.push(target);
+    }
+    target.sumX += p.x * w;
+    target.sumY += p.y * w;
+    target.sumX2 += p.x * p.x * w;
+    target.sumW += w;
+    target.count++;
+  }
+  return clusters.map((c) => ({
+    x: c.sumX / c.sumW,
+    y: c.sumY / c.sumW,
+    count: c.count,
+    variance: Math.max(1, c.sumX2 / c.sumW - (c.sumX / c.sumW) ** 2),
+  }));
+}
+
 function rgbToHsv(r, g, b) {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -243,6 +274,38 @@ export class BlobTracker {
       }
     }
 
+    this._finalizePosition({ cx, cy, count, variance, locked, timestampMs, frame, minPixels });
+  }
+
+  /** Candidate-point entry point for a non-color detector (e.g. the AI
+   *  model): given points already found by some other means, in the same
+   *  process-canvas coordinate space the color path uses, run the same
+   *  clustering + nearest-last-known-position selection and the same
+   *  confidence/history/rotation bookkeeping as updatePosition() — so both
+   *  detection sources feed the exact same downstream battle logic
+   *  (ring-out, collisions, RPM, HUD). `points` may be a plain list of
+   *  {x,y}, or {x,y,weight} to bias which cluster centroid the model was
+   *  most confident about. */
+  updatePositionFromPoints(frame, points, timestampMs) {
+    const minPixels = 1; // candidate points are already sparse/pre-filtered
+    const locked = this.centroid && this.confidence > LOCK_CONFIDENCE_THRESHOLD;
+    const weighted = points.map((p) => ({ x: p.x, y: p.y, weight: p.weight ?? 1 }));
+    const clusters = clusterWeightedPoints(weighted, CLUSTER_MERGE_RADIUS).filter((c) => c.count >= minPixels);
+
+    let cx, cy, count, variance;
+    if (clusters.length > 0) {
+      const best = locked && this.centroid
+        ? clusters.reduce((a, b) =>
+            Math.hypot(a.x - this.centroid.x, a.y - this.centroid.y) <=
+            Math.hypot(b.x - this.centroid.x, b.y - this.centroid.y) ? a : b)
+        : clusters.reduce((a, b) => (a.count >= b.count ? a : b));
+      cx = best.x; cy = best.y; count = best.count; variance = best.variance;
+    }
+
+    this._finalizePosition({ cx, cy, count, variance, locked, timestampMs, frame, minPixels });
+  }
+
+  _finalizePosition({ cx, cy, count, variance, locked, timestampMs, frame, minPixels }) {
     if (count === undefined || count < minPixels) {
       this.confidence = Math.max(0, this.confidence - 0.15);
       if (this.confidence === 0) {
