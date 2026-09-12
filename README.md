@@ -69,18 +69,6 @@ Rename "Player A" / "Player B" by tapping their names in the top scoreboard.
 - **Stamina-out**: triggered when a Top that was spinning meaningfully
   fast drops below a low RPM threshold and stays there.
 
-### Optional: AI Detection (Beta)
-
-Tap **"Try AI Detection (Beta)"** (after Start Camera) to use a small CNN
-instead of color matching to find the Tops — trained on real footage of
-actual tops in an actual stadium (see `ai-dataset/README.md` for the full
-pipeline and how to retrain it with more footage). It doesn't need per-Top
-color calibration, just the stadium boundary. If it fails to load for any
-reason, the app falls back to the color tracker automatically — nothing
-about the default experience depends on this working. Current status:
-promising but trained on a small, single-setup dataset — it may not
-generalize to very different lighting/backgrounds yet.
-
 ## Limitations
 
 - RPM and position tracking are **heuristic estimates** from a single 2D
