@@ -30,6 +30,8 @@ export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibra
     drawDebugMatches(ctx, camera, debugPoints.b, COLOR_B, dispW, dispH);
   }
   drawBoundary(ctx, camera, boundary, dispW, dispH, calibrationMode === "stadium");
+  drawFullTrail(ctx, camera, blobA, COLOR_A, dispW, dispH);
+  drawFullTrail(ctx, camera, blobB, COLOR_B, dispW, dispH);
   drawTrail(ctx, camera, blobA, COLOR_A, dispW, dispH);
   drawTrail(ctx, camera, blobB, COLOR_B, dispW, dispH);
   drawBlob(ctx, camera, blobA, COLOR_A, dispW, dispH);
@@ -101,6 +103,28 @@ function smoothPoints(points, windowRadius = 1) {
     out.push({ x: sx / n, y: sy / n });
   }
   return out;
+}
+
+/** Draws the Top's entire path so far this round as a faint, constant-width
+ *  line — a recap of where it's been, underneath the brighter short trail
+ *  below. A single stroked path (no per-segment styling) so it stays cheap
+ *  to draw even once a long round has built up hundreds of points. */
+function drawFullTrail(ctx, camera, blob, color, dispW, dispH) {
+  const full = blob?.fullTrail;
+  if (!full || full.length < 2) return;
+  const pts = full.map((p) => toDisplay(camera, p, dispW, dispH));
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.3;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+  ctx.restore();
 }
 
 /** Draws a fading motion trail behind a Top using its recent tracked

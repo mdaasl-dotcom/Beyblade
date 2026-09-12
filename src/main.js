@@ -366,6 +366,10 @@ function maybeEnableStartMatch() {
 }
 
 btnStartMatch.addEventListener("click", () => {
+  // Fresh recap trail for the new round, so it doesn't carry over the
+  // previous round's path.
+  blobA.clearTrail();
+  blobB.clearTrail();
   battle.startRound();
   btnStartMatch.disabled = true;
   btnResetRound.disabled = false;
@@ -375,9 +379,12 @@ btnStartMatch.addEventListener("click", () => {
 btnResetRound.addEventListener("click", () => {
   battle.reset();
   battle.ready();
+  blobA.clearTrail();
+  blobB.clearTrail();
   btnStartMatch.disabled = false;
   btnStartMatch.textContent = "Start Match";
   setStatus("Round reset. Tap 'Start Match' when ready.");
+  showToast("Round reset!");
 });
 
 btnEnterAr.addEventListener("click", async () => {
