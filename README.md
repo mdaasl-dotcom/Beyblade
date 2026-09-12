@@ -1,4 +1,4 @@
-# Spin Battle Tracker
+# Bey XR
 
 A browser app that turns a phone's camera into an AR tracking overlay for a
 **real, physical** Spin Stadium. Point your phone at your stadium and it
