@@ -1,6 +1,6 @@
-// Lets the user tap around the rim of a physical Beyblade Stadium to define
+// Lets the user tap around the rim of a physical Spin Stadium to define
 // its boundary as a 2D polygon in processing-canvas coordinates. Tracked
-// Beyblades that cross outside this polygon and stay out trigger a Ring-Out.
+// Tops that cross outside this polygon and stay out trigger a Ring-Out.
 
 const OUT_CONFIRM_FRAMES = 6; // frames a blob must stay outside before it counts as out
 

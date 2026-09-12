@@ -1,5 +1,5 @@
 // Match state machine: turns raw tracking data (positions, RPM, ring-out
-// events) into Beyblade battle results — collisions, stamina-out, ring-out —
+// events) into Top battle results — collisions, stamina-out, ring-out —
 // and keeps the scoreboard/event log.
 
 export const MatchState = {
@@ -10,7 +10,7 @@ export const MatchState = {
 };
 
 const COLLISION_COOLDOWN_MS = 600;
-const STAMINA_OUT_RPM = 50; // below this we consider a Beyblade to have stopped
+const STAMINA_OUT_RPM = 50; // below this we consider a Top to have stopped
 const STAMINA_OUT_CONFIRM_MS = 1500; // must stay below threshold this long
 const MIN_RPM_TO_ARM_STAMINA_CHECK = 120; // must have been spinning meaningfully first
 

@@ -1,8 +1,8 @@
-// Color-blob tracking of physical Beyblades in the live camera feed, plus a
+// Color-blob tracking of physical Tops in the live camera feed, plus a
 // lightweight rotation-speed (RPM) estimator based on circular
 // cross-correlation of a ring of brightness samples around each blob.
 //
-// This is a heuristic, not a precision instrument: it needs a Beyblade with
+// This is a heuristic, not a precision instrument: it needs a Top with
 // some visible color/pattern asymmetry and reasonable lighting. Treat the
 // RPM readout as an estimate, not a certified measurement.
 
@@ -11,12 +11,12 @@ const SEARCH_MARGIN = 2.5; // how much the ROI grows around the last-known blob 
 const LOCK_CONFIDENCE_THRESHOLD = 0.15; // below this, search the whole frame to reacquire
 const CLUSTER_MERGE_RADIUS = 18; // points within this distance are treated as one blob
 
-// Real Beyblades spin at roughly 5,000-12,000 RPM. A camera sampling at
+// Real Tops spin at roughly 5,000-12,000 RPM. A camera sampling at
 // ~30-60fps can only unambiguously resolve rotation up to about half a
 // revolution per frame before the reading aliases into a plausible-looking
 // but wrong number (the same "wagon-wheel effect" that makes a fast wheel
 // look slow, stopped, or backwards on video) — roughly 900 RPM at 30fps,
-// ~1800 at 60fps. Below that, a real Beyblade slowing down late in a match
+// ~1800 at 60fps. Below that, a real Top slowing down late in a match
 // is finally within a camera's reach. We can't detect aliasing directly, so
 // this is a heuristic: once the smoothed estimate has stayed under the
 // threshold for a bit (not just one lucky low frame), treat it as trustworthy
@@ -34,9 +34,9 @@ const TRAIL_DURATION_MS = 1200;
 const TRAIL_MAX_POINTS = 200; // hard cap so a runaway high frame rate can't grow this unbounded
 
 /** Greedily groups matched pixels into separate blobs by proximity. Needed
- *  when two Beyblades are calibrated to the *same* color (e.g. both wearing
+ *  when two Tops are calibrated to the *same* color (e.g. both wearing
  *  identical stickers): a naive single average over every matching pixel in
- *  the frame would blend two separate Beyblades into one bogus midpoint
+ *  the frame would blend two separate Tops into one bogus midpoint
  *  position instead of recognizing them as two distinct objects. */
 function clusterPoints(points, mergeRadius) {
   const clusters = [];
@@ -117,9 +117,9 @@ export class BlobTracker {
 
   /** For the debug overlay: samples every `stride`th pixel across the whole
    *  frame and returns the ones matching this tracker's calibrated color, so
-   *  the UI can show exactly what the tracker considers "this Beyblade" —
+   *  the UI can show exactly what the tracker considers "this Top" —
    *  useful for seeing whether it's picking up background clutter or barely
-   *  matching the Beyblade at all. Not used by the tracking logic itself. */
+   *  matching the Top at all. Not used by the tracking logic itself. */
   computeDebugMatches(frame, stride = 2) {
     if (!this.targetHsv) return [];
     const { data, width, height } = frame;
@@ -153,8 +153,8 @@ export class BlobTracker {
     // Tighter than a first cut: with a generous hue tolerance and low floors,
     // things like beige carpet or warm-toned lighting can fall "close enough"
     // to a calibrated color (e.g. neon yellow) to get matched as if they were
-    // the Beyblade. Scaling closer to the actual calibrated saturation/value
-    // (instead of a low flat floor) makes the match track this Beyblade's
+    // the Top. Scaling closer to the actual calibrated saturation/value
+    // (instead of a low flat floor) makes the match track this Top's
     // specific color more specifically.
     this.satMin = Math.max(0.2, this.targetHsv[1] * 0.55);
     this.valMin = Math.max(0.15, this.targetHsv[2] * 0.5);
@@ -169,7 +169,7 @@ export class BlobTracker {
     // Shiny metal/gray/white/near-black spots have low saturation, so hue
     // barely means anything there — color tracking will struggle to tell
     // that apart from similarly dull background/lighting. Flag it so the UI
-    // can suggest tapping a more colorful spot on the Beyblade instead.
+    // can suggest tapping a more colorful spot on the Top instead.
     const lowSaturation = this.targetHsv[1] < 0.25;
     return { ok: true, lowSaturation };
   }
@@ -181,7 +181,7 @@ export class BlobTracker {
     const { data, width, height } = frame;
 
     // Only trust the small region-of-interest search while we still have a
-    // confident lock. Once confidence has decayed (the Beyblade moved out of
+    // confident lock. Once confidence has decayed (the Top moved out of
     // the ROI, motion blur, etc.) fall back to scanning the whole frame so a
     // lost target can be reacquired instead of the tracker staying stuck
     // forever re-checking the same empty patch of the frame.
@@ -220,9 +220,9 @@ export class BlobTracker {
       }
     } else {
       // Full-frame reacquire: collect every matching point and cluster them,
-      // since another Beyblade sharing this same color could be visible
+      // since another Top sharing this same color could be visible
       // anywhere in the frame too. Pick whichever cluster is closest to
-      // where this Beyblade was last seen, rather than averaging everything
+      // where this Top was last seen, rather than averaging everything
       // into one meaningless midpoint between two separate objects.
       const points = [];
       for (let y = minY; y < maxY; y++) {
@@ -249,10 +249,10 @@ export class BlobTracker {
         // Fully lost: isActive() already goes false from confidence alone,
         // so the HUD stops drawing a crosshair. Deliberately keep the stale
         // centroid (rather than clearing it) — it's the only way to tell
-        // "my Beyblade" apart from another one sharing the same calibrated
+        // "my Top" apart from another one sharing the same calibrated
         // color when re-scanning the whole frame below finds several
         // matching clusters; without it, reacquiring after two identically
-        // colored Beyblades both drop out (e.g. right after a clash) has no
+        // colored Tops both drop out (e.g. right after a clash) has no
         // way to avoid randomly locking onto the other one's blob instead.
         this._prevSignal = null;
       }

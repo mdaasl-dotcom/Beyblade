@@ -160,7 +160,7 @@ cameraSelect.addEventListener("change", async () => {
     btnCalibrateB.disabled = true;
     btnStartMatch.disabled = true;
     btnResetRound.disabled = true;
-    setStatus("Camera switched. Re-calibrate the stadium and Beyblades to match the new view.");
+    setStatus("Camera switched. Re-calibrate the stadium and Tops to match the new view.");
     helpText.textContent = "Tap 'Calibrate Stadium' again for the new camera view.";
   } catch (err) {
     setStatus(`Camera error: ${err.message}`);
@@ -181,8 +181,8 @@ btnCalibrateStadium.addEventListener("click", () => {
       btnCalibrateStadium.classList.remove("armed");
       btnCalibrateStadium.textContent = "2. Calibrate Stadium";
       btnCalibrateA.disabled = false;
-      helpText.textContent = "Stadium set. Now calibrate each Beyblade.";
-      setStatus("Stadium calibrated. Tap 'Calibrate Blader A', then tap the Beyblade in view.");
+      helpText.textContent = "Stadium set. Now calibrate each Top.";
+      setStatus("Stadium calibrated. Tap 'Calibrate Player A', then tap the Top in view.");
     } else {
       helpText.textContent = "Need at least 3 points to close the stadium boundary.";
     }
@@ -195,7 +195,7 @@ btnCalibrateB.addEventListener("click", () => armColorCalibration("calibrate-b",
 function armColorCalibration(mode, blob, btn) {
   calibrationMode = mode;
   btn.classList.add("armed");
-  helpText.textContent = `Tap directly on ${blob.name === "A" ? nameAEl.textContent : nameBEl.textContent}'s Beyblade in the camera view.`;
+  helpText.textContent = `Tap directly on ${blob.name === "A" ? nameAEl.textContent : nameBEl.textContent}'s Top in the camera view.`;
 }
 
 canvas.addEventListener("pointerdown", (e) => {
@@ -218,11 +218,11 @@ canvas.addEventListener("pointerdown", (e) => {
       btnCalibrateA.classList.remove("armed");
       btnCalibrateB.disabled = false;
       if (result.lowSaturation) {
-        helpText.textContent = "That spot looked gray/metallic/white — hard to track by color. Tap Blader A again on a more colorful spot if tracking seems unreliable, otherwise continue.";
+        helpText.textContent = "That spot looked gray/metallic/white — hard to track by color. Tap Player A again on a more colorful spot if tracking seems unreliable, otherwise continue.";
       } else {
-        helpText.textContent = "Blader A locked on. Now calibrate Blader B.";
+        helpText.textContent = "Player A locked on. Now calibrate Player B.";
       }
-      setStatus("Calibrate Blader B, or start the match if both are ready.");
+      setStatus("Calibrate Player B, or start the match if both are ready.");
       maybeEnableStartMatch();
     }
     return;
@@ -234,9 +234,9 @@ canvas.addEventListener("pointerdown", (e) => {
       calibrationMode = null;
       btnCalibrateB.classList.remove("armed");
       if (result.lowSaturation) {
-        helpText.textContent = "That spot looked gray/metallic/white — hard to track by color. Tap Blader B again on a more colorful spot if tracking seems unreliable, otherwise continue.";
+        helpText.textContent = "That spot looked gray/metallic/white — hard to track by color. Tap Player B again on a more colorful spot if tracking seems unreliable, otherwise continue.";
       } else {
-        helpText.textContent = "Both Beyblades locked on.";
+        helpText.textContent = "Both Tops locked on.";
       }
       setStatus("Ready! Tap 'Start Match' to begin tracking the battle.");
       maybeEnableStartMatch();

@@ -1,5 +1,5 @@
 // Draws the AR heads-up display on top of the camera feed: stadium boundary,
-// per-Beyblade tracking markers with RPM, and the inter-blob distance line.
+// per-Top tracking markers with RPM, and the inter-blob distance line.
 // Pure rendering module — takes already-computed state, no logic.
 
 const COLOR_A = "#ff5470";
@@ -40,8 +40,8 @@ export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibra
 }
 
 /** Debug aid: paints every pixel the tracker currently considers "this
- *  Beyblade's color" as a translucent dot. Lets you see directly whether
- *  calibration is picking up just the Beyblade, or also background/glare —
+ *  Top's color" as a translucent dot. Lets you see directly whether
+ *  calibration is picking up just the Top, or also background/glare —
  *  much faster to diagnose than guessing from crosshair behavior alone.
  *  Takes already-computed points (see main.js) rather than a raw frame —
  *  scanning every pixel is too expensive to redo on every render frame. */
@@ -103,7 +103,7 @@ function smoothPoints(points, windowRadius = 1) {
   return out;
 }
 
-/** Draws a fading motion trail behind a Beyblade using its recent tracked
+/** Draws a fading motion trail behind a Top using its recent tracked
  *  positions (tracker.js keeps a short rolling history for this), rendered
  *  as a smooth curve — quadratic Bezier segments through the midpoints of
  *  each pair of (smoothed) points, a standard trick for turning a polyline
@@ -175,7 +175,7 @@ function drawBlob(ctx, camera, blob, color, dispW, dispH) {
   ctx.restore();
 }
 
-/** A phone camera can't resolve real Beyblade spin speeds (several thousand
+/** A phone camera can't resolve real Top spin speeds (several thousand
  *  RPM) without aliasing into a plausible-but-wrong number — see the
  *  RPM_TRUST_THRESHOLD comment in tracker.js. So while a blob's rpm reading
  *  hasn't settled into the camera's actually-resolvable range, show a plain
