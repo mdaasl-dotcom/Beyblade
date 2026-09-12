@@ -9,6 +9,37 @@
 const RING_SAMPLES = 24; // angular samples used for rotation correlation
 const SEARCH_MARGIN = 2.5; // how much the ROI grows around the last-known blob radius
 const LOCK_CONFIDENCE_THRESHOLD = 0.15; // below this, search the whole frame to reacquire
+const CLUSTER_MERGE_RADIUS = 18; // points within this distance are treated as one blob
+
+/** Greedily groups matched pixels into separate blobs by proximity. Needed
+ *  when two Beyblades are calibrated to the *same* color (e.g. both wearing
+ *  identical stickers): a naive single average over every matching pixel in
+ *  the frame would blend two separate Beyblades into one bogus midpoint
+ *  position instead of recognizing them as two distinct objects. */
+function clusterPoints(points, mergeRadius) {
+  const clusters = [];
+  for (const p of points) {
+    let target = null;
+    for (const c of clusters) {
+      const cx = c.sumX / c.count, cy = c.sumY / c.count;
+      if (Math.hypot(p.x - cx, p.y - cy) <= mergeRadius) { target = c; break; }
+    }
+    if (!target) {
+      target = { sumX: 0, sumY: 0, sumX2: 0, count: 0 };
+      clusters.push(target);
+    }
+    target.sumX += p.x;
+    target.sumY += p.y;
+    target.sumX2 += p.x * p.x;
+    target.count++;
+  }
+  return clusters.map((c) => ({
+    x: c.sumX / c.count,
+    y: c.sumY / c.count,
+    count: c.count,
+    variance: Math.max(1, c.sumX2 / c.count - (c.sumX / c.count) ** 2),
+  }));
+}
 
 function rgbToHsv(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -129,35 +160,70 @@ export class BlobTracker {
       maxY = Math.min(height, Math.ceil(this.centroid.y + r));
     }
 
-    let sumX = 0, sumY = 0, count = 0;
-    let sumX2 = 0;
-    for (let y = minY; y < maxY; y++) {
-      for (let x = minX; x < maxX; x++) {
-        const idx = (y * width + x) * 4;
-        const [h, s, v] = rgbToHsv(data[idx], data[idx + 1], data[idx + 2]);
-        if (this._isMatch(h, s, v)) {
-          sumX += x; sumY += y; count++;
-          sumX2 += x * x;
+    const minPixels = 4;
+    let cx, cy, count, variance;
+
+    if (locked) {
+      // Small region, effectively one object expected in it: a running sum
+      // is enough and keeps this per-frame hot path cheap.
+      let sumX = 0, sumY = 0, sumX2 = 0;
+      count = 0;
+      for (let y = minY; y < maxY; y++) {
+        for (let x = minX; x < maxX; x++) {
+          const idx = (y * width + x) * 4;
+          const [h, s, v] = rgbToHsv(data[idx], data[idx + 1], data[idx + 2]);
+          if (this._isMatch(h, s, v)) {
+            sumX += x; sumY += y; count++;
+            sumX2 += x * x;
+          }
         }
+      }
+      if (count >= minPixels) {
+        cx = sumX / count;
+        cy = sumY / count;
+        variance = Math.max(1, sumX2 / count - cx * cx);
+      }
+    } else {
+      // Full-frame reacquire: collect every matching point and cluster them,
+      // since another Beyblade sharing this same color could be visible
+      // anywhere in the frame too. Pick whichever cluster is closest to
+      // where this Beyblade was last seen, rather than averaging everything
+      // into one meaningless midpoint between two separate objects.
+      const points = [];
+      for (let y = minY; y < maxY; y++) {
+        for (let x = minX; x < maxX; x++) {
+          const idx = (y * width + x) * 4;
+          const [h, s, v] = rgbToHsv(data[idx], data[idx + 1], data[idx + 2]);
+          if (this._isMatch(h, s, v)) points.push({ x, y });
+        }
+      }
+      const clusters = clusterPoints(points, CLUSTER_MERGE_RADIUS).filter((c) => c.count >= minPixels);
+      if (clusters.length > 0) {
+        const best = this.centroid
+          ? clusters.reduce((a, b) =>
+              Math.hypot(a.x - this.centroid.x, a.y - this.centroid.y) <=
+              Math.hypot(b.x - this.centroid.x, b.y - this.centroid.y) ? a : b)
+          : clusters.reduce((a, b) => (a.count >= b.count ? a : b));
+        cx = best.x; cy = best.y; count = best.count; variance = best.variance;
       }
     }
 
-    const minPixels = 4;
-    if (count < minPixels) {
+    if (count === undefined || count < minPixels) {
       this.confidence = Math.max(0, this.confidence - 0.15);
       if (this.confidence === 0) {
-        // Fully lost: drop the stale centroid (so the HUD stops drawing a
-        // frozen crosshair) and clear rotation history; the next frame will
-        // scan the whole frame above to try to find the Beyblade again.
-        this.centroid = null;
+        // Fully lost: isActive() already goes false from confidence alone,
+        // so the HUD stops drawing a crosshair. Deliberately keep the stale
+        // centroid (rather than clearing it) — it's the only way to tell
+        // "my Beyblade" apart from another one sharing the same calibrated
+        // color when re-scanning the whole frame below finds several
+        // matching clusters; without it, reacquiring after two identically
+        // colored Beyblades both drop out (e.g. right after a clash) has no
+        // way to avoid randomly locking onto the other one's blob instead.
         this._prevSignal = null;
       }
       return;
     }
 
-    const cx = sumX / count;
-    const cy = sumY / count;
-    const variance = Math.max(1, sumX2 / count - cx * cx);
     const newRadius = Math.min(40, Math.max(4, Math.sqrt(variance) * 1.4));
 
     if (locked && this._lastTimestamp != null) {
