@@ -178,8 +178,10 @@ btnDebugView.addEventListener("click", () => {
   debugView = !debugView;
   btnDebugView.classList.toggle("armed", debugView);
   btnDebugView.textContent = debugView ? "Hide Debug View" : "Show Debug View";
-  toleranceRow.hidden = !debugView;
-  if (debugView && currentFrame) {
+  // The tightness slider only does anything for color matching — hide it in
+  // AI mode so it doesn't look like it should be affecting the model.
+  toleranceRow.hidden = !debugView || aiMode;
+  if (debugView && currentFrame && !aiMode) {
     // Force an immediate recompute on the next frame instead of waiting up
     // to DEBUG_RECOMPUTE_EVERY frames to show anything.
     debugFrameCounter = 0;
@@ -421,13 +423,14 @@ function loop(timestamp) {
   if (!running) return;
   currentFrame = camera.grabFrame();
 
+  let aiPoints = null;
   if (aiMode) {
     // Both trackers get the SAME candidate points — like two Tops sharing a
     // calibrated color in color mode, each tracker independently picks
     // whichever point is closest to its own last-known position, so
     // identity naturally stays consistent frame to frame without the model
     // needing to know "which top is which".
-    const aiPoints = aiDetector.detect(videoEl, camera.processWidth, camera.processHeight);
+    aiPoints = aiDetector.detect(videoEl, camera.processWidth, camera.processHeight);
     blobA.updatePositionFromPoints(currentFrame, aiPoints, timestamp);
     blobB.updatePositionFromPoints(currentFrame, aiPoints, timestamp);
   } else {
@@ -457,7 +460,8 @@ function loop(timestamp) {
 
   renderHud(ctx, {
     canvas, camera, boundary, blobA, blobB, calibrationMode,
-    debugPoints: debugView ? cachedDebugPoints : null,
+    debugPoints: debugView && !aiMode ? cachedDebugPoints : null,
+    aiDebugPoints: debugView && aiMode ? aiPoints : null,
   });
 
   requestAnimationFrame(loop);

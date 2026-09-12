@@ -17,7 +17,7 @@ export function resizeCanvasToDisplaySize(canvas) {
   return dpr;
 }
 
-export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibrationMode, debugPoints }) {
+export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibrationMode, debugPoints, aiDebugPoints }) {
   const dpr = resizeCanvasToDisplaySize(canvas);
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
@@ -28,6 +28,9 @@ export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibra
   if (debugPoints) {
     drawDebugMatches(ctx, camera, debugPoints.a, COLOR_A, dispW, dispH);
     drawDebugMatches(ctx, camera, debugPoints.b, COLOR_B, dispW, dispH);
+  }
+  if (aiDebugPoints) {
+    drawAiDetections(ctx, camera, aiDebugPoints, dispW, dispH);
   }
   drawBoundary(ctx, camera, boundary, dispW, dispH, calibrationMode === "stadium");
   drawTrail(ctx, camera, blobA, COLOR_A, dispW, dispH);
@@ -54,6 +57,34 @@ function drawDebugMatches(ctx, camera, points, color, dispW, dispH) {
   for (const p of points) {
     const d = toDisplay(camera, p, dispW, dispH);
     ctx.fillRect(d.x - dotSize / 2, d.y - dotSize / 2, dotSize, dotSize);
+  }
+  ctx.restore();
+}
+
+/** Debug aid for AI mode: shows every raw point the model detected this
+ *  frame (before either tracker claims one), sized/labeled by the model's
+ *  own confidence — lets you see directly whether the model is finding the
+ *  Tops at all, finding extra false points, or missing one entirely,
+ *  instead of only seeing the (possibly wrong) final crosshair. */
+function drawAiDetections(ctx, camera, points, dispW, dispH) {
+  if (!points || points.length === 0) return;
+  const scale = dispW / camera.processWidth;
+  ctx.save();
+  ctx.strokeStyle = "#ffd23f";
+  ctx.fillStyle = "#ffd23f";
+  ctx.font = "600 11px -apple-system, sans-serif";
+  ctx.textAlign = "center";
+  for (const p of points) {
+    const d = toDisplay(camera, p, dispW, dispH);
+    const weight = p.weight ?? 1;
+    const r = 10 + weight * 14;
+    ctx.globalAlpha = 0.35 + weight * 0.5;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.9;
+    ctx.fillText(weight.toFixed(2), d.x, d.y - r - 6);
   }
   ctx.restore();
 }
