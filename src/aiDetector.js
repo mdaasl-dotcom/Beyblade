@@ -13,7 +13,10 @@
 //    aspect-preserving) to that size.
 //  - Output: 16x16x1 heatmap, sigmoid activation, single class ("a top").
 
-const TFJS_URL = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js";
+// Vendored locally (vendor/tf.min.js) rather than loaded from a CDN — one
+// less external dependency/point of failure for something this core to the
+// feature, and the download size to the user is the same either way.
+const TFJS_URL = "vendor/tf.min.js";
 const MODEL_URL = "model/model.json";
 const INPUT_SIZE = 128;
 const HEATMAP_SIZE = 16;
