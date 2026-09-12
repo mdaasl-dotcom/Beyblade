@@ -116,13 +116,26 @@ function drawBlob(ctx, camera, blob, color, dispW, dispH) {
   ctx.globalAlpha = 1;
   ctx.font = "600 13px -apple-system, sans-serif";
   ctx.textAlign = "center";
-  const label = `${blob.name} · ${Math.round(blob.rpm)} RPM`;
+  const label = `${blob.name} · ${spinStatusLabel(blob)}`;
   const ty = d.y - r - 14;
   ctx.lineWidth = 3;
   ctx.strokeStyle = "rgba(0,0,0,0.6)";
   ctx.strokeText(label, d.x, ty);
   ctx.fillText(label, d.x, ty);
   ctx.restore();
+}
+
+/** A phone camera can't resolve real Beyblade spin speeds (several thousand
+ *  RPM) without aliasing into a plausible-but-wrong number — see the
+ *  RPM_TRUST_THRESHOLD comment in tracker.js. So while a blob's rpm reading
+ *  hasn't settled into the camera's actually-resolvable range, show a plain
+ *  qualitative status instead of a fabricated-looking number; once it has,
+ *  show both the status and the estimate together. */
+function spinStatusLabel(blob) {
+  if (!blob.rpmTrustworthy) return "Spinning fast";
+  if (blob.rpm > 200) return `Slowing · ~${Math.round(blob.rpm)} RPM`;
+  if (blob.rpm > 50) return `Nearly stopped · ~${Math.round(blob.rpm)} RPM`;
+  return "Almost stopped";
 }
 
 function drawDistanceLine(ctx, camera, blobA, blobB, dispW, dispH) {

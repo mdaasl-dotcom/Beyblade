@@ -11,6 +11,20 @@ const SEARCH_MARGIN = 2.5; // how much the ROI grows around the last-known blob 
 const LOCK_CONFIDENCE_THRESHOLD = 0.15; // below this, search the whole frame to reacquire
 const CLUSTER_MERGE_RADIUS = 18; // points within this distance are treated as one blob
 
+// Real Beyblades spin at roughly 5,000-12,000 RPM. A camera sampling at
+// ~30-60fps can only unambiguously resolve rotation up to about half a
+// revolution per frame before the reading aliases into a plausible-looking
+// but wrong number (the same "wagon-wheel effect" that makes a fast wheel
+// look slow, stopped, or backwards on video) — roughly 900 RPM at 30fps,
+// ~1800 at 60fps. Below that, a real Beyblade slowing down late in a match
+// is finally within a camera's reach. We can't detect aliasing directly, so
+// this is a heuristic: once the smoothed estimate has stayed under the
+// threshold for a bit (not just one lucky low frame), treat it as trustworthy
+// and keep showing a number, since spin only decays from here — it won't
+// suddenly speed back up and become untrustworthy again mid-round.
+const RPM_TRUST_THRESHOLD = 900;
+const RPM_TRUST_SETTLE_MS = 600;
+
 /** Greedily groups matched pixels into separate blobs by proximity. Needed
  *  when two Beyblades are calibrated to the *same* color (e.g. both wearing
  *  identical stickers): a naive single average over every matching pixel in
@@ -76,7 +90,10 @@ export class BlobTracker {
     this.confidence = 0;
     this.velocity = { x: 0, y: 0 };
     this.rpm = 0;
+    this.rpmTrustworthy = false;
+    this._lowRegimeSince = null;
     this._prevSignal = null;
+    this._rotationLastTimestamp = null;
     this._lastAngleOffset = 0;
     this._lastTimestamp = null;
     this._history = []; // recent centroids for smoothing/velocity
@@ -129,7 +146,11 @@ export class BlobTracker {
     this.valMin = Math.max(0.12, this.targetHsv[2] * 0.35);
     this.centroid = { x: px, y: py };
     this.radius = 10;
+    this.rpm = 0;
+    this.rpmTrustworthy = false;
+    this._lowRegimeSince = null;
     this._prevSignal = null;
+    this._rotationLastTimestamp = null;
     this._history = [];
     // Shiny metal/gray/white/near-black spots have low saturation, so hue
     // barely means anything there — color tracking will struggle to tell
@@ -267,7 +288,15 @@ export class BlobTracker {
     mean /= RING_SAMPLES;
     for (let i = 0; i < RING_SAMPLES; i++) signal[i] -= mean;
 
-    if (this._prevSignal && this._lastTimestamp != null) {
+    // NOTE: this deliberately uses its own _rotationLastTimestamp rather than
+    // the position tracker's this._lastTimestamp — that field gets updated to
+    // the *current* frame's timestamp in updatePosition() just before this
+    // method runs, which used to make `timestampMs - this._lastTimestamp`
+    // always ~0 here, forcing dt to the 1ms floor below on every frame. That
+    // produced wildly inflated instantRpm values that got rejected as noise
+    // every time, silently freezing this.rpm at its initial value forever —
+    // the RPM readout never actually updated at all.
+    if (this._prevSignal && this._rotationLastTimestamp != null) {
       let bestShift = 0, bestScore = -Infinity;
       for (let shift = -Math.floor(RING_SAMPLES / 2); shift <= Math.floor(RING_SAMPLES / 2); shift++) {
         let score = 0;
@@ -281,7 +310,7 @@ export class BlobTracker {
       const energy = signal.reduce((a, v) => a + v * v, 0);
       if (energy > 40) {
         // Smooth the raw per-frame shift so noise doesn't spike the RPM readout.
-        const dt = Math.max(1, timestampMs - this._lastTimestamp) / 1000;
+        const dt = Math.max(1, timestampMs - this._rotationLastTimestamp) / 1000;
         const angleShiftDeg = (bestShift / RING_SAMPLES) * 360;
         const instantRpm = Math.abs((angleShiftDeg / dt) / 360) * 60;
         // Reject implausible single-frame spikes (> 3000 RPM) as noise.
@@ -291,9 +320,23 @@ export class BlobTracker {
       } else {
         this.rpm *= 0.9; // low texture/contrast: decay estimate rather than trust it
       }
+
+      // Latch "trustworthy" once we've settled below the resolvable range
+      // for a sustained stretch, not just a single lucky low reading.
+      if (!this.rpmTrustworthy) {
+        if (this.rpm < RPM_TRUST_THRESHOLD) {
+          if (this._lowRegimeSince == null) this._lowRegimeSince = timestampMs;
+          else if (timestampMs - this._lowRegimeSince >= RPM_TRUST_SETTLE_MS) {
+            this.rpmTrustworthy = true;
+          }
+        } else {
+          this._lowRegimeSince = null;
+        }
+      }
     }
 
     this._prevSignal = signal;
+    this._rotationLastTimestamp = timestampMs;
   }
 
   get speed() {
