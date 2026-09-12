@@ -24,7 +24,14 @@ const CLUSTER_MERGE_RADIUS = 18; // points within this distance are treated as o
 // suddenly speed back up and become untrustworthy again mid-round.
 const RPM_TRUST_THRESHOLD = 900;
 const RPM_TRUST_SETTLE_MS = 600;
-const TRAIL_LENGTH = 40; // recent centroids kept for the on-screen motion trail
+// Time-based, not a fixed sample count: a laggy camera pipeline (e.g. a
+// phone-as-webcam app like Camo over WiFi) can deliver genuinely new frames
+// far slower than the render loop runs. A fixed count of samples would then
+// span many real seconds instead of ~1s, so one bad position right after
+// calibration (while confidence is still ramping up) could sit in the trail
+// for the entire session instead of aging out quickly.
+const TRAIL_DURATION_MS = 1200;
+const TRAIL_MAX_POINTS = 200; // hard cap so a runaway high frame rate can't grow this unbounded
 
 /** Greedily groups matched pixels into separate blobs by proximity. Needed
  *  when two Beyblades are calibrated to the *same* color (e.g. both wearing
@@ -265,7 +272,11 @@ export class BlobTracker {
     this._lastTimestamp = timestampMs;
 
     this._history.push({ x: cx, y: cy, t: timestampMs });
-    if (this._history.length > TRAIL_LENGTH) this._history.shift();
+    const cutoff = timestampMs - TRAIL_DURATION_MS;
+    while (this._history.length > 0 && this._history[0].t < cutoff) this._history.shift();
+    if (this._history.length > TRAIL_MAX_POINTS) {
+      this._history.splice(0, this._history.length - TRAIL_MAX_POINTS);
+    }
 
     this._updateRotation(frame, timestampMs);
   }
