@@ -52,7 +52,7 @@ const WALKTHROUGH_SLIDES = [
   {
     icon: "4",
     title: "Lock on to each top",
-    body: "Tap “Calibrate Player A,” then tap directly on the first top's most colorful spot. Do the same for Player B — use two clearly different colors so the app can tell them apart.",
+    body: "Tap “Calibrate Player A,” then tap directly on the first top's most colorful spot. Do the same for Player B — matching stickers on both is fine, the app tells them apart by position too, not just color.",
   },
   {
     icon: "5",

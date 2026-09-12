@@ -75,8 +75,12 @@ Rename "Player A" / "Player B" by tapping their names in the top scoreboard.
   camera feed, not a certified measurement instrument. Accuracy depends on
   lighting, camera angle, motion blur, and how visually distinct each
   Top and the stadium background are.
-- Two Tops must be reasonably distinguishable by color for the tracker
-  to tell them apart.
+- Two Tops can share the same calibrated color (e.g. matching stickers) —
+  the tracker falls back to position (whichever one was last seen closest)
+  to tell them apart, rather than requiring distinct colors. The one edge
+  case: if two identically-colored tops are actually touching/overlapping
+  when tracking needs to reacquire both at once, they may briefly be read
+  as one blob until they separate.
 - WebXR's `immersive-ar` session does not expose raw camera pixels on most
   browsers, so the AR anchor view (`Enter AR`) is a separate, optional,
   purely decorative layer for placing a 3D marker over the stadium. It
