@@ -42,6 +42,9 @@ let calibrationMode = null; // null | "stadium" | "calibrate-a" | "calibrate-b"
 let running = false;
 let currentFrame = null;
 let debugView = false;
+let debugFrameCounter = 0;
+let cachedDebugPoints = { a: [], b: [] };
+const DEBUG_RECOMPUTE_EVERY = 4; // frames between full-frame debug-mask scans
 const xrView = new XrStadiumView();
 
 btnDebugView.addEventListener("click", () => {
@@ -49,6 +52,15 @@ btnDebugView.addEventListener("click", () => {
   btnDebugView.classList.toggle("armed", debugView);
   btnDebugView.textContent = debugView ? "Hide Debug View" : "Show Debug View";
   toleranceRow.hidden = !debugView;
+  if (debugView && currentFrame) {
+    // Force an immediate recompute on the next frame instead of waiting up
+    // to DEBUG_RECOMPUTE_EVERY frames to show anything.
+    debugFrameCounter = 0;
+    cachedDebugPoints = {
+      a: blobA.computeDebugMatches(currentFrame, 3),
+      b: blobB.computeDebugMatches(currentFrame, 3),
+    };
+  }
 });
 
 // Lets the user tighten/loosen how picky the color match is while watching
@@ -282,9 +294,24 @@ function loop(timestamp) {
 
   battle.update({ blobA, blobB, ringOutA, ringOutB, now: timestamp });
 
+  // The debug-mask scan touches every pixel in the frame for both trackers —
+  // too expensive to redo on every single render frame, especially on top of
+  // an already-taxed pipeline like a phone-as-webcam app. Recompute only
+  // every few frames; the HUD just keeps redrawing the last computed points
+  // in between, which looks effectively the same for a diagnostic overlay.
+  if (debugView) {
+    debugFrameCounter++;
+    if (debugFrameCounter % DEBUG_RECOMPUTE_EVERY === 0) {
+      cachedDebugPoints = {
+        a: blobA.computeDebugMatches(currentFrame, 3),
+        b: blobB.computeDebugMatches(currentFrame, 3),
+      };
+    }
+  }
+
   renderHud(ctx, {
     canvas, camera, boundary, blobA, blobB, calibrationMode,
-    debugFrame: debugView ? currentFrame : null,
+    debugPoints: debugView ? cachedDebugPoints : null,
   });
 
   requestAnimationFrame(loop);

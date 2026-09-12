@@ -17,7 +17,7 @@ export function resizeCanvasToDisplaySize(canvas) {
   return dpr;
 }
 
-export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibrationMode, debugFrame }) {
+export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibrationMode, debugPoints }) {
   const dpr = resizeCanvasToDisplaySize(canvas);
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
@@ -25,9 +25,9 @@ export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibra
   ctx.scale(dpr, dpr);
   const dispW = canvas.clientWidth, dispH = canvas.clientHeight;
 
-  if (debugFrame) {
-    drawDebugMatches(ctx, camera, blobA, COLOR_A, dispW, dispH, debugFrame);
-    drawDebugMatches(ctx, camera, blobB, COLOR_B, dispW, dispH, debugFrame);
+  if (debugPoints) {
+    drawDebugMatches(ctx, camera, debugPoints.a, COLOR_A, dispW, dispH);
+    drawDebugMatches(ctx, camera, debugPoints.b, COLOR_B, dispW, dispH);
   }
   drawBoundary(ctx, camera, boundary, dispW, dispH, calibrationMode === "stadium");
   drawTrail(ctx, camera, blobA, COLOR_A, dispW, dispH);
@@ -42,11 +42,11 @@ export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibra
 /** Debug aid: paints every pixel the tracker currently considers "this
  *  Beyblade's color" as a translucent dot. Lets you see directly whether
  *  calibration is picking up just the Beyblade, or also background/glare —
- *  much faster to diagnose than guessing from crosshair behavior alone. */
-function drawDebugMatches(ctx, camera, blob, color, dispW, dispH, frame) {
-  if (!blob?.targetHsv) return;
-  const points = blob.computeDebugMatches(frame, 2);
-  if (points.length === 0) return;
+ *  much faster to diagnose than guessing from crosshair behavior alone.
+ *  Takes already-computed points (see main.js) rather than a raw frame —
+ *  scanning every pixel is too expensive to redo on every render frame. */
+function drawDebugMatches(ctx, camera, points, color, dispW, dispH) {
+  if (!points || points.length === 0) return;
   const dotSize = Math.max(2, (dispW / camera.processWidth) * 2.2);
   ctx.save();
   ctx.fillStyle = color;
