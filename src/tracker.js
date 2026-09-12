@@ -24,6 +24,7 @@ const CLUSTER_MERGE_RADIUS = 18; // points within this distance are treated as o
 // suddenly speed back up and become untrustworthy again mid-round.
 const RPM_TRUST_THRESHOLD = 900;
 const RPM_TRUST_SETTLE_MS = 600;
+const TRAIL_LENGTH = 40; // recent centroids kept for the on-screen motion trail
 
 /** Greedily groups matched pixels into separate blobs by proximity. Needed
  *  when two Beyblades are calibrated to the *same* color (e.g. both wearing
@@ -264,7 +265,7 @@ export class BlobTracker {
     this._lastTimestamp = timestampMs;
 
     this._history.push({ x: cx, y: cy, t: timestampMs });
-    if (this._history.length > 20) this._history.shift();
+    if (this._history.length > TRAIL_LENGTH) this._history.shift();
 
     this._updateRotation(frame, timestampMs);
   }
@@ -347,6 +348,11 @@ export class BlobTracker {
 
   get speed() {
     return Math.hypot(this.velocity.x, this.velocity.y);
+  }
+
+  /** Recent centroids (oldest first), for drawing an on-screen motion trail. */
+  get trail() {
+    return this._history;
   }
 
   isActive() {

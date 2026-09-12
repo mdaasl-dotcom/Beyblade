@@ -30,6 +30,8 @@ export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibra
     drawDebugMatches(ctx, camera, blobB, COLOR_B, dispW, dispH, debugFrame);
   }
   drawBoundary(ctx, camera, boundary, dispW, dispH, calibrationMode === "stadium");
+  drawTrail(ctx, camera, blobA, COLOR_A, dispW, dispH);
+  drawTrail(ctx, camera, blobB, COLOR_B, dispW, dispH);
   drawBlob(ctx, camera, blobA, COLOR_A, dispW, dispH);
   drawBlob(ctx, camera, blobB, COLOR_B, dispW, dispH);
   drawDistanceLine(ctx, camera, blobA, blobB, dispW, dispH);
@@ -82,6 +84,29 @@ function drawBoundary(ctx, camera, boundary, dispW, dispH, highlight) {
     ctx.arc(d.x, d.y, 4, 0, Math.PI * 2);
     ctx.fill();
   });
+  ctx.restore();
+}
+
+/** Draws a fading motion trail behind a Beyblade using its recent tracked
+ *  positions (tracker.js keeps a short rolling history for this). Drawn
+ *  before the crosshair so the crosshair sits on top of it. */
+function drawTrail(ctx, camera, blob, color, dispW, dispH) {
+  const trail = blob?.trail;
+  if (!trail || trail.length < 2) return;
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.strokeStyle = color;
+  for (let i = 1; i < trail.length; i++) {
+    const a = toDisplay(camera, trail[i - 1], dispW, dispH);
+    const b = toDisplay(camera, trail[i], dispW, dispH);
+    const t = i / trail.length; // 0 (oldest) -> 1 (newest)
+    ctx.globalAlpha = 0.06 + t * 0.35;
+    ctx.lineWidth = 1.5 + t * 3.5;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
