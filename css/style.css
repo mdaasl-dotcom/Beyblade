@@ -153,6 +153,16 @@ button.armed { border-color: #ffd23f; color: #ffd23f; }
 }
 #camera-select[hidden] { display: none; }
 
+#tolerance-row {
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.78em;
+}
+#tolerance-row[hidden] { display: none; }
+#tolerance-label { white-space: nowrap; }
+#tolerance-slider { flex: 1; max-width: 220px; }
+
 #help-text {
   text-align: center;
   font-size: 0.75em;

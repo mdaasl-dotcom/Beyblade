@@ -22,6 +22,9 @@ const btnResetRound = document.getElementById("btn-reset-round");
 const btnEnterAr = document.getElementById("btn-enter-ar");
 const btnDebugView = document.getElementById("btn-debug-view");
 const cameraSelect = document.getElementById("camera-select");
+const toleranceRow = document.getElementById("tolerance-row");
+const toleranceSlider = document.getElementById("tolerance-slider");
+const toleranceLabel = document.getElementById("tolerance-label");
 
 const winsAEl = document.getElementById("wins-a");
 const winsBEl = document.getElementById("wins-b");
@@ -45,6 +48,17 @@ btnDebugView.addEventListener("click", () => {
   debugView = !debugView;
   btnDebugView.classList.toggle("armed", debugView);
   btnDebugView.textContent = debugView ? "Hide Debug View" : "Show Debug View";
+  toleranceRow.hidden = !debugView;
+});
+
+// Lets the user tighten/loosen how picky the color match is while watching
+// the debug-view dots shrink or grow in real time — much faster to dial in
+// per-lighting-setup than guessing at fixed numbers in code.
+toleranceSlider.addEventListener("input", () => {
+  const value = Number(toleranceSlider.value);
+  blobA.hueTolerance = value;
+  blobB.hueTolerance = value;
+  toleranceLabel.textContent = `Match tightness: ${value}°`;
 });
 
 function setStatus(text) {

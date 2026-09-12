@@ -82,7 +82,7 @@ export class BlobTracker {
     this.name = name;
     this.colorLabel = colorLabel;
     this.targetHsv = null;
-    this.hueTolerance = 22;
+    this.hueTolerance = 14; // adjustable live via the app's "Match Tightness" slider
     this.satMin = 0.25;
     this.valMin = 0.2;
     this.centroid = null; // {x,y} in processing-canvas space
@@ -142,8 +142,14 @@ export class BlobTracker {
     }
     if (n === 0) return { ok: false };
     this.targetHsv = [hSum / n, sSum / n, vSum / n];
-    this.satMin = Math.max(0.15, this.targetHsv[1] * 0.4);
-    this.valMin = Math.max(0.12, this.targetHsv[2] * 0.35);
+    // Tighter than a first cut: with a generous hue tolerance and low floors,
+    // things like beige carpet or warm-toned lighting can fall "close enough"
+    // to a calibrated color (e.g. neon yellow) to get matched as if they were
+    // the Beyblade. Scaling closer to the actual calibrated saturation/value
+    // (instead of a low flat floor) makes the match track this Beyblade's
+    // specific color more specifically.
+    this.satMin = Math.max(0.2, this.targetHsv[1] * 0.55);
+    this.valMin = Math.max(0.15, this.targetHsv[2] * 0.5);
     this.centroid = { x: px, y: py };
     this.radius = 10;
     this.rpm = 0;
