@@ -17,7 +17,7 @@ export function resizeCanvasToDisplaySize(canvas) {
   return dpr;
 }
 
-export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibrationMode }) {
+export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibrationMode, debugFrame }) {
   const dpr = resizeCanvasToDisplaySize(canvas);
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
@@ -25,11 +25,34 @@ export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibra
   ctx.scale(dpr, dpr);
   const dispW = canvas.clientWidth, dispH = canvas.clientHeight;
 
+  if (debugFrame) {
+    drawDebugMatches(ctx, camera, blobA, COLOR_A, dispW, dispH, debugFrame);
+    drawDebugMatches(ctx, camera, blobB, COLOR_B, dispW, dispH, debugFrame);
+  }
   drawBoundary(ctx, camera, boundary, dispW, dispH, calibrationMode === "stadium");
   drawBlob(ctx, camera, blobA, COLOR_A, dispW, dispH);
   drawBlob(ctx, camera, blobB, COLOR_B, dispW, dispH);
   drawDistanceLine(ctx, camera, blobA, blobB, dispW, dispH);
 
+  ctx.restore();
+}
+
+/** Debug aid: paints every pixel the tracker currently considers "this
+ *  Beyblade's color" as a translucent dot. Lets you see directly whether
+ *  calibration is picking up just the Beyblade, or also background/glare —
+ *  much faster to diagnose than guessing from crosshair behavior alone. */
+function drawDebugMatches(ctx, camera, blob, color, dispW, dispH, frame) {
+  if (!blob?.targetHsv) return;
+  const points = blob.computeDebugMatches(frame, 2);
+  if (points.length === 0) return;
+  const dotSize = Math.max(2, (dispW / camera.processWidth) * 2.2);
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.5;
+  for (const p of points) {
+    const d = toDisplay(camera, p, dispW, dispH);
+    ctx.fillRect(d.x - dotSize / 2, d.y - dotSize / 2, dotSize, dotSize);
+  }
   ctx.restore();
 }
 

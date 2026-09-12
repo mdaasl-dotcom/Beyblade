@@ -20,6 +20,7 @@ const btnCalibrateB = document.getElementById("btn-calibrate-b");
 const btnStartMatch = document.getElementById("btn-start-match");
 const btnResetRound = document.getElementById("btn-reset-round");
 const btnEnterAr = document.getElementById("btn-enter-ar");
+const btnDebugView = document.getElementById("btn-debug-view");
 const cameraSelect = document.getElementById("camera-select");
 
 const winsAEl = document.getElementById("wins-a");
@@ -37,7 +38,14 @@ const battle = new BattleEngine({ onEvent: handleBattleEvent });
 let calibrationMode = null; // null | "stadium" | "calibrate-a" | "calibrate-b"
 let running = false;
 let currentFrame = null;
+let debugView = false;
 const xrView = new XrStadiumView();
+
+btnDebugView.addEventListener("click", () => {
+  debugView = !debugView;
+  btnDebugView.classList.toggle("armed", debugView);
+  btnDebugView.textContent = debugView ? "Hide Debug View" : "Show Debug View";
+});
 
 function setStatus(text) {
   statusLine.textContent = text;
@@ -178,11 +186,16 @@ canvas.addEventListener("pointerdown", (e) => {
   }
 
   if (calibrationMode === "calibrate-a") {
-    if (blobA.calibrate(currentFrame, p.x, p.y)) {
+    const result = blobA.calibrate(currentFrame, p.x, p.y);
+    if (result.ok) {
       calibrationMode = null;
       btnCalibrateA.classList.remove("armed");
       btnCalibrateB.disabled = false;
-      helpText.textContent = "Blader A locked on. Now calibrate Blader B.";
+      if (result.lowSaturation) {
+        helpText.textContent = "That spot looked gray/metallic/white — hard to track by color. Tap Blader A again on a more colorful spot if tracking seems unreliable, otherwise continue.";
+      } else {
+        helpText.textContent = "Blader A locked on. Now calibrate Blader B.";
+      }
       setStatus("Calibrate Blader B, or start the match if both are ready.");
       maybeEnableStartMatch();
     }
@@ -190,10 +203,15 @@ canvas.addEventListener("pointerdown", (e) => {
   }
 
   if (calibrationMode === "calibrate-b") {
-    if (blobB.calibrate(currentFrame, p.x, p.y)) {
+    const result = blobB.calibrate(currentFrame, p.x, p.y);
+    if (result.ok) {
       calibrationMode = null;
       btnCalibrateB.classList.remove("armed");
-      helpText.textContent = "Both Beyblades locked on.";
+      if (result.lowSaturation) {
+        helpText.textContent = "That spot looked gray/metallic/white — hard to track by color. Tap Blader B again on a more colorful spot if tracking seems unreliable, otherwise continue.";
+      } else {
+        helpText.textContent = "Both Beyblades locked on.";
+      }
       setStatus("Ready! Tap 'Start Match' to begin tracking the battle.");
       maybeEnableStartMatch();
     }
@@ -250,7 +268,10 @@ function loop(timestamp) {
 
   battle.update({ blobA, blobB, ringOutA, ringOutB, now: timestamp });
 
-  renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibrationMode });
+  renderHud(ctx, {
+    canvas, camera, boundary, blobA, blobB, calibrationMode,
+    debugFrame: debugView ? currentFrame : null,
+  });
 
   requestAnimationFrame(loop);
 }

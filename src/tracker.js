@@ -51,6 +51,33 @@ export class BlobTracker {
     this._history = []; // recent centroids for smoothing/velocity
   }
 
+  _isMatch(h, s, v) {
+    if (!this.targetHsv) return false;
+    const [targetH] = this.targetHsv;
+    let dh = Math.abs(h - targetH);
+    if (dh > 180) dh = 360 - dh;
+    return dh <= this.hueTolerance && s >= this.satMin && v >= this.valMin;
+  }
+
+  /** For the debug overlay: samples every `stride`th pixel across the whole
+   *  frame and returns the ones matching this tracker's calibrated color, so
+   *  the UI can show exactly what the tracker considers "this Beyblade" —
+   *  useful for seeing whether it's picking up background clutter or barely
+   *  matching the Beyblade at all. Not used by the tracking logic itself. */
+  computeDebugMatches(frame, stride = 2) {
+    if (!this.targetHsv) return [];
+    const { data, width, height } = frame;
+    const points = [];
+    for (let y = 0; y < height; y += stride) {
+      for (let x = 0; x < width; x += stride) {
+        const idx = (y * width + x) * 4;
+        const [h, s, v] = rgbToHsv(data[idx], data[idx + 1], data[idx + 2]);
+        if (this._isMatch(h, s, v)) points.push({ x, y });
+      }
+    }
+    return points;
+  }
+
   calibrate(frame, x, y) {
     const { data, width, height } = frame;
     const px = Math.round(x), py = Math.round(y);
@@ -65,7 +92,7 @@ export class BlobTracker {
         hSum += h; sSum += s; vSum += v; n++;
       }
     }
-    if (n === 0) return false;
+    if (n === 0) return { ok: false };
     this.targetHsv = [hSum / n, sSum / n, vSum / n];
     this.satMin = Math.max(0.15, this.targetHsv[1] * 0.4);
     this.valMin = Math.max(0.12, this.targetHsv[2] * 0.35);
@@ -73,7 +100,12 @@ export class BlobTracker {
     this.radius = 10;
     this._prevSignal = null;
     this._history = [];
-    return true;
+    // Shiny metal/gray/white/near-black spots have low saturation, so hue
+    // barely means anything there — color tracking will struggle to tell
+    // that apart from similarly dull background/lighting. Flag it so the UI
+    // can suggest tapping a more colorful spot on the Beyblade instead.
+    const lowSaturation = this.targetHsv[1] < 0.25;
+    return { ok: true, lowSaturation };
   }
 
   /** Scans the frame (within a region of interest around the last known
@@ -81,7 +113,6 @@ export class BlobTracker {
   updatePosition(frame, timestampMs) {
     if (!this.targetHsv) return;
     const { data, width, height } = frame;
-    const [targetH] = this.targetHsv;
 
     // Only trust the small region-of-interest search while we still have a
     // confident lock. Once confidence has decayed (the Beyblade moved out of
@@ -104,9 +135,7 @@ export class BlobTracker {
       for (let x = minX; x < maxX; x++) {
         const idx = (y * width + x) * 4;
         const [h, s, v] = rgbToHsv(data[idx], data[idx + 1], data[idx + 2]);
-        let dh = Math.abs(h - targetH);
-        if (dh > 180) dh = 360 - dh;
-        if (dh <= this.hueTolerance && s >= this.satMin && v >= this.valMin) {
+        if (this._isMatch(h, s, v)) {
           sumX += x; sumY += y; count++;
           sumX2 += x * x;
         }
