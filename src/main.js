@@ -31,6 +31,91 @@ const winsBEl = document.getElementById("wins-b");
 const nameAEl = document.getElementById("name-a");
 const nameBEl = document.getElementById("name-b");
 
+// ---------- First-open walkthrough ----------
+
+const WALKTHROUGH_SLIDES = [
+  {
+    icon: "1",
+    title: "Point your camera at the stadium",
+    body: "Spin Battle Tracker turns your phone or laptop camera into a live AR overlay for your real stadium — no simulation, it tracks the actual tops spinning in front of you.",
+  },
+  {
+    icon: "2",
+    title: "Start the camera",
+    body: "Tap “Start Camera” and allow camera access when your browser asks. You'll see your stadium show up live on screen.",
+  },
+  {
+    icon: "3",
+    title: "Trace the stadium rim",
+    body: "Tap “Calibrate Stadium,” then tap 6–8 points around the inside rim of your bowl. Tap the button again to close the boundary — this is what makes ring-outs work.",
+  },
+  {
+    icon: "4",
+    title: "Lock on to each top",
+    body: "Tap “Calibrate Player A,” then tap directly on the first top's most colorful spot. Do the same for Player B — use two clearly different colors so the app can tell them apart.",
+  },
+  {
+    icon: "5",
+    title: "Start the match",
+    body: "Tap “Start Match” and spin in. Clashes, ring-outs, and stamina-outs are called automatically, with a live scoreboard across rounds.",
+  },
+];
+
+const walkthroughEl = document.getElementById("walkthrough");
+const walkthroughIcon = document.getElementById("walkthrough-icon");
+const walkthroughDots = document.getElementById("walkthrough-dots");
+const walkthroughTitle = document.getElementById("walkthrough-title");
+const walkthroughBody = document.getElementById("walkthrough-body");
+const walkthroughBack = document.getElementById("walkthrough-back");
+const walkthroughNext = document.getElementById("walkthrough-next");
+const walkthroughSkip = document.getElementById("walkthrough-skip");
+
+let walkthroughStep = 0;
+
+function renderWalkthroughStep() {
+  const slide = WALKTHROUGH_SLIDES[walkthroughStep];
+  walkthroughIcon.textContent = slide.icon;
+  walkthroughTitle.textContent = slide.title;
+  walkthroughBody.textContent = slide.body;
+
+  walkthroughDots.innerHTML = "";
+  WALKTHROUGH_SLIDES.forEach((_, i) => {
+    const dot = document.createElement("span");
+    if (i === walkthroughStep) dot.classList.add("active");
+    walkthroughDots.appendChild(dot);
+  });
+
+  walkthroughBack.hidden = walkthroughStep === 0;
+  const isLast = walkthroughStep === WALKTHROUGH_SLIDES.length - 1;
+  walkthroughNext.textContent = isLast ? "Let's go" : "Next";
+}
+
+function closeWalkthrough() {
+  walkthroughEl.hidden = true;
+}
+
+walkthroughNext.addEventListener("click", () => {
+  if (walkthroughStep < WALKTHROUGH_SLIDES.length - 1) {
+    walkthroughStep++;
+    renderWalkthroughStep();
+  } else {
+    closeWalkthrough();
+  }
+});
+
+walkthroughBack.addEventListener("click", () => {
+  if (walkthroughStep > 0) {
+    walkthroughStep--;
+    renderWalkthroughStep();
+  }
+});
+
+walkthroughSkip.addEventListener("click", closeWalkthrough);
+
+renderWalkthroughStep();
+
+// ---------- App state ----------
+
 const camera = new CameraFeed(videoEl, { processWidth: 240 });
 const boundary = new StadiumBoundary();
 const ringOutWatcher = new RingOutWatcher(boundary);

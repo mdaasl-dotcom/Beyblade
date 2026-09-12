@@ -8,6 +8,20 @@
 </head>
 <body>
   <div id="app">
+    <div id="walkthrough" role="dialog" aria-modal="true" aria-labelledby="walkthrough-title">
+      <div class="walkthrough-card">
+        <button id="walkthrough-skip" class="walkthrough-skip" type="button">Skip</button>
+        <div class="walkthrough-icon" id="walkthrough-icon"></div>
+        <div class="walkthrough-dots" id="walkthrough-dots"></div>
+        <h2 id="walkthrough-title"></h2>
+        <p id="walkthrough-body"></p>
+        <div class="walkthrough-actions">
+          <button id="walkthrough-back" class="walkthrough-secondary" type="button">Back</button>
+          <button id="walkthrough-next" class="walkthrough-primary" type="button">Next</button>
+        </div>
+      </div>
+    </div>
+
     <video id="camera-feed" autoplay playsinline muted></video>
     <canvas id="hud-canvas"></canvas>
 

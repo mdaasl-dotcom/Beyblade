@@ -184,3 +184,101 @@ button.armed { border-color: #ffd23f; color: #ffd23f; }
   .scoreboard { max-width: 620px; }
   button { font-size: 0.9em; }
 }
+
+/* ---------- First-open walkthrough ---------- */
+
+#walkthrough {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(3, 4, 9, 0.72);
+  backdrop-filter: blur(4px);
+  transition: opacity 0.2s ease;
+}
+#walkthrough[hidden] { display: none; }
+
+.walkthrough-card {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  background: linear-gradient(165deg, #131829, #0c0f1c);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 28px 24px 22px;
+  text-align: center;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+}
+
+.walkthrough-skip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.78em;
+  font-weight: 600;
+  padding: 6px 8px;
+}
+.walkthrough-skip:active { transform: none; opacity: 0.7; }
+
+.walkthrough-icon {
+  width: 52px;
+  height: 52px;
+  margin: 4px auto 16px;
+  border-radius: 50%;
+  background: rgba(255, 210, 63, 0.12);
+  border: 1px solid rgba(255, 210, 63, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5em;
+}
+
+.walkthrough-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.walkthrough-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.walkthrough-dots span.active {
+  background: #ffd23f;
+  transform: scale(1.3);
+}
+
+.walkthrough-card h2 {
+  font-size: 1.1em;
+  margin: 0 0 10px;
+}
+
+.walkthrough-card p {
+  color: var(--muted);
+  font-size: 0.88em;
+  line-height: 1.55;
+  margin: 0 0 22px;
+}
+
+.walkthrough-actions {
+  display: flex;
+  gap: 10px;
+}
+.walkthrough-actions button { flex: 1; padding: 11px 12px; }
+
+.walkthrough-primary {
+  background: #ffd23f;
+  border-color: #ffd23f;
+  color: #1a1400;
+}
+
+.walkthrough-secondary[hidden] { display: none; }
