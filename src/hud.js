@@ -17,7 +17,11 @@ export function resizeCanvasToDisplaySize(canvas) {
   return dpr;
 }
 
-export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibrationMode, debugPoints }) {
+// How long a clash burst stays on screen. Exported so main.js can prune its
+// clashEffects list using the same duration this drawing code respects.
+export const CLASH_FX_DURATION_MS = 450;
+
+export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibrationMode, debugPoints, clashEffects, now }) {
   const dpr = resizeCanvasToDisplaySize(canvas);
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
@@ -37,8 +41,50 @@ export function renderHud(ctx, { canvas, camera, boundary, blobA, blobB, calibra
   drawBlob(ctx, camera, blobA, COLOR_A, dispW, dispH);
   drawBlob(ctx, camera, blobB, COLOR_B, dispW, dispH);
   drawDistanceLine(ctx, camera, blobA, blobB, dispW, dispH);
+  if (clashEffects && clashEffects.length) {
+    drawClashEffects(ctx, camera, clashEffects, now, dispW, dispH);
+  }
 
   ctx.restore();
+}
+
+/** A brief spark burst — an expanding ring plus radiating lines, both
+ *  fading out — drawn at the impact point for CLASH_FX_DURATION_MS after
+ *  each clash. Purely decorative; main.js owns adding/pruning the list. */
+function drawClashEffects(ctx, camera, clashEffects, now, dispW, dispH) {
+  const scale = dispW / camera.processWidth;
+  for (const fx of clashEffects) {
+    const age = now - fx.t;
+    if (age < 0 || age > CLASH_FX_DURATION_MS) continue;
+    const t = age / CLASH_FX_DURATION_MS; // 0 (just happened) -> 1 (faded out)
+    const d = toDisplay(camera, fx, dispW, dispH);
+
+    ctx.save();
+    ctx.translate(d.x, d.y);
+    ctx.globalAlpha = 1 - t;
+    ctx.strokeStyle = "#ffd23f";
+    ctx.lineCap = "round";
+
+    // Expanding ring
+    ctx.lineWidth = (3 - t * 2) * scale;
+    ctx.beginPath();
+    ctx.arc(0, 0, (6 + t * 30) * scale, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Radiating spark lines
+    const sparkCount = 8;
+    const innerR = (5 + t * 10) * scale;
+    const outerR = innerR + (10 + t * 16) * scale;
+    ctx.lineWidth = (2.5 - t * 1.5) * scale;
+    for (let i = 0; i < sparkCount; i++) {
+      const theta = (i / sparkCount) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(theta) * innerR, Math.sin(theta) * innerR);
+      ctx.lineTo(Math.cos(theta) * outerR, Math.sin(theta) * outerR);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 }
 
 /** Debug aid: paints every pixel the tracker currently considers "this

@@ -2,8 +2,9 @@ import { CameraFeed } from "./camera.js";
 import { BlobTracker } from "./tracker.js";
 import { StadiumBoundary, RingOutWatcher } from "./stadiumCalibration.js";
 import { BattleEngine, MatchState } from "./battleEngine.js";
-import { renderHud } from "./hud.js";
+import { renderHud, CLASH_FX_DURATION_MS } from "./hud.js";
 import { isArSupported, XrStadiumView } from "./xrView.js";
+import { unlockAudio, playClash, playRingOut, playStaminaOut, playCountdown, vibrate } from "./audio.js";
 
 const videoEl = document.getElementById("camera-feed");
 const canvas = document.getElementById("hud-canvas");
@@ -12,6 +13,8 @@ const statusLine = document.getElementById("status-line");
 const helpText = document.getElementById("help-text");
 const logPanel = document.getElementById("log-panel");
 const toast = document.getElementById("event-toast");
+const countdownOverlay = document.getElementById("countdown-overlay");
+const countdownText = document.getElementById("countdown-text");
 const controlsEl = document.getElementById("controls");
 const btnToggleControls = document.getElementById("btn-toggle-controls");
 
@@ -174,6 +177,7 @@ let pixelsPerCm = 0;
 let calibrationMode = null; // null | "stadium" | "calibrate-a" | "calibrate-b"
 let running = false;
 let currentFrame = null;
+let clashEffects = []; // {x, y, t} spark bursts drawn by the HUD, pruned in loop()
 let debugView = false;
 let debugFrameCounter = 0;
 let cachedDebugPoints = { a: [], b: [] };
@@ -248,9 +252,21 @@ function logLine(text) {
 }
 
 function handleBattleEvent(entry) {
-  if (entry.type === "collision") showToast(entry.message);
+  if (entry.type === "collision") {
+    showToast(entry.message);
+    playClash();
+    vibrate(40);
+    if (entry.pos) clashEffects.push({ x: entry.pos.x, y: entry.pos.y, t: performance.now() });
+  }
   if (entry.type === "round_over") {
     showToast(entry.message);
+    if (entry.reason === "Ring-Out") {
+      playRingOut();
+      vibrate([30, 40, 60]);
+    } else {
+      playStaminaOut();
+      vibrate([60, 40, 30]);
+    }
     winsAEl.textContent = battle.wins.a;
     winsBEl.textContent = battle.wins.b;
     btnStartMatch.disabled = false;
@@ -263,6 +279,10 @@ function handleBattleEvent(entry) {
 }
 
 btnStartCamera.addEventListener("click", async () => {
+  // Must happen synchronously inside a real click handler — browsers won't
+  // let audio play later without one, so this is the one guaranteed user
+  // gesture in the whole flow.
+  unlockAudio();
   btnStartCamera.disabled = true;
   setStatus("Requesting camera access…");
   try {
@@ -411,13 +431,33 @@ function maybeEnableStartMatch() {
   }
 }
 
-btnStartMatch.addEventListener("click", () => {
+/** Shows and speaks "3, 2, 1, Go Shoot!" before a round actually begins —
+ *  each step pops onto the overlay and plays via speech synthesis. Restarts
+ *  the CSS entrance animation on every step by clearing then re-setting
+ *  the animation property (just changing textContent wouldn't replay it). */
+function runCountdown() {
+  countdownOverlay.hidden = false;
+  return playCountdown((text, isPhrase) => {
+    countdownText.textContent = text;
+    countdownText.classList.toggle("phrase", isPhrase);
+    countdownText.style.animation = "none";
+    void countdownText.offsetWidth; // force reflow so the animation replays
+    countdownText.style.animation = "";
+  }).then(() => {
+    countdownOverlay.hidden = true;
+  });
+}
+
+btnStartMatch.addEventListener("click", async () => {
+  btnStartMatch.disabled = true;
   // Fresh recap trail for the new round, so it doesn't carry over the
   // previous round's path.
   blobA.clearTrail();
   blobB.clearTrail();
+  clashEffects = [];
+  setStatus("Get ready…");
+  await runCountdown();
   battle.startRound();
-  btnStartMatch.disabled = true;
   btnResetRound.disabled = false;
   setStatus("Match in progress — tracking spin, position, and collisions.");
 });
@@ -427,6 +467,7 @@ btnResetRound.addEventListener("click", () => {
   battle.ready();
   blobA.clearTrail();
   blobB.clearTrail();
+  clashEffects = [];
   btnStartMatch.disabled = false;
   btnStartMatch.textContent = "Start Match";
   setStatus("Round reset. Tap 'Start Match' when ready.");
@@ -477,9 +518,14 @@ function loop(timestamp) {
     }
   }
 
+  if (clashEffects.length) {
+    clashEffects = clashEffects.filter((fx) => timestamp - fx.t < CLASH_FX_DURATION_MS);
+  }
+
   renderHud(ctx, {
     canvas, camera, boundary, blobA, blobB, calibrationMode,
     debugPoints: debugView ? cachedDebugPoints : null,
+    clashEffects, now: timestamp,
   });
 
   requestAnimationFrame(loop);

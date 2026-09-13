@@ -92,7 +92,13 @@ export class BattleEngine {
       if (dist <= contactDist && now - this._lastCollisionAt > COLLISION_COOLDOWN_MS) {
         this._lastCollisionAt = now;
         this._collisionCount++;
-        this._emit("collision", `Clash! (${this._collisionCount})`, { count: this._collisionCount });
+        // Midpoint between the two Tops, in processing-canvas coordinates —
+        // lets the UI draw a clash effect at the actual impact point.
+        const pos = {
+          x: (blobA.centroid.x + blobB.centroid.x) / 2,
+          y: (blobA.centroid.y + blobB.centroid.y) / 2,
+        };
+        this._emit("collision", `Clash! (${this._collisionCount})`, { count: this._collisionCount, pos });
       }
     }
 
