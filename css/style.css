@@ -6,9 +6,34 @@
   --accent-b: #29c5ff;
   --text: #eef2ff;
   --muted: #93a0c2;
+  /* Glass material: a translucent, blurred surface with a thin bright rim
+     light along its top edge — the standard "liquid glass" look. */
+  --glass-fill: rgba(255, 255, 255, 0.10);
+  --glass-fill-active: rgba(255, 255, 255, 0.22);
+  --glass-border: rgba(255, 255, 255, 0.22);
+  --glass-blur: blur(22px) saturate(180%);
+  /* Spring: a slight overshoot-then-settle, like iOS's UIKit spring
+     animations. Ease: a plain fast-out-slow-in for fades/size changes that
+     shouldn't bounce. */
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --spring: linear; --ease: linear; }
 }
 
 * { box-sizing: border-box; }
+
+@keyframes drop-in {
+  from { opacity: 0; transform: translateY(-14px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: translate(-50%, 6px) scale(0.85); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
 
 html, body {
   margin: 0;
@@ -60,13 +85,17 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background: var(--panel);
-  border-radius: 14px;
-  padding: 8px 14px;
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 8px 16px;
   max-width: 520px;
   margin: 0 auto;
   pointer-events: auto;
-  backdrop-filter: blur(6px);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 10px 24px -14px rgba(0, 0, 0, 0.7);
+  animation: drop-in 0.5s var(--spring) both;
 }
 
 .player { display: flex; align-items: center; gap: 8px; font-weight: 600; }
@@ -102,23 +131,26 @@ html, body {
   position: absolute;
   top: 90px;
   left: 50%;
-  transform: translateX(-50%);
-  background: rgba(20, 24, 38, 0.92);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 12px;
-  padding: 10px 18px;
+  background: var(--glass-fill-active);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 10px 20px;
   font-weight: 700;
   font-size: 1.05em;
-  transition: opacity 0.25s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.75);
+  animation: pop-in 0.45s var(--spring) both;
+  transition: opacity 0.2s var(--ease);
 }
-#event-toast.hidden { opacity: 0; pointer-events: none; }
+#event-toast.hidden { opacity: 0; pointer-events: none; animation: none; }
 
 #controls {
   position: absolute;
   left: 0; right: 0; bottom: 0;
   padding: 26px 10px calc(10px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(to top, rgba(0,0,0,0.75), transparent);
-  transition: padding 0.2s ease;
+  transition: padding 0.4s var(--ease), background 0.4s var(--ease);
 }
 
 /* Collapsed: shrink the footer down to just the toggle handle so the rest
@@ -133,27 +165,42 @@ html, body {
      itself should stay tappable. */
   pointer-events: none;
 }
-#controls.collapsed #controls-body { display: none; }
+
+#controls-body {
+  max-height: 480px;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  overflow: hidden;
+  transition: max-height 0.45s var(--ease), opacity 0.3s var(--ease), transform 0.45s var(--spring);
+}
+#controls.collapsed #controls-body {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+}
 #controls.collapsed #btn-toggle-controls { pointer-events: auto; }
 
 #btn-toggle-controls {
   position: absolute;
   top: 0;
   left: 50%;
-  transform: translateX(-50%);
   width: 56px;
   height: 22px;
   padding: 0;
-  border-radius: 0 0 10px 10px;
+  border-radius: 0 0 14px 14px;
   border-top: none;
-  background: rgba(10, 14, 24, 0.82);
-  font-size: 0.75em;
+  background: var(--glass-fill);
+  font-size: 0.7em;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  transform: translateX(-50%) rotate(0deg);
+  transition: transform 0.4s var(--spring), background 0.2s var(--ease);
 }
-#btn-toggle-controls:active { transform: translateX(-50%) scale(0.95); }
+#controls.collapsed #btn-toggle-controls { transform: translateX(-50%) rotate(180deg); }
+#btn-toggle-controls:active { transform: translateX(-50%) scale(0.9); }
+#controls.collapsed #btn-toggle-controls:active { transform: translateX(-50%) rotate(180deg) scale(0.9); }
 
 .step-row {
   display: flex;
@@ -164,25 +211,39 @@ html, body {
 }
 
 button {
-  background: rgba(255,255,255,0.08);
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--text);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 10px;
-  padding: 8px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 9px 14px;
   font-size: 0.82em;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 6px 16px -10px rgba(0, 0, 0, 0.6);
+  transition: transform 0.4s var(--spring), background 0.2s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
-button:active { transform: scale(0.97); }
+button:active {
+  transform: scale(0.94);
+  background: var(--glass-fill-active);
+  transition: transform 0.15s var(--ease), background 0.1s var(--ease);
+}
 button:disabled { opacity: 0.35; cursor: not-allowed; }
-button.armed { border-color: #ffd23f; color: #ffd23f; }
+button.armed {
+  border-color: #ffd23f;
+  color: #ffd23f;
+  box-shadow: inset 0 1px 0 rgba(255, 210, 63, 0.35), 0 0 0 1px rgba(255, 210, 63, 0.15), 0 6px 16px -10px rgba(0, 0, 0, 0.6);
+}
 
 #camera-select {
-  background: rgba(255,255,255,0.08);
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--text);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 10px;
-  padding: 8px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 9px 14px;
   font-size: 0.82em;
   font-weight: 600;
   max-width: 260px;
@@ -248,8 +309,9 @@ button.armed { border-color: #ffd23f; color: #ffd23f; }
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(3, 4, 9, 0.72);
-  backdrop-filter: blur(4px);
+  background: rgba(3, 4, 9, 0.6);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
   transition: opacity 0.2s ease;
 }
 #walkthrough[hidden] { display: none; }
@@ -258,12 +320,23 @@ button.armed { border-color: #ffd23f; color: #ffd23f; }
   position: relative;
   width: 100%;
   max-width: 360px;
-  background: linear-gradient(165deg, #131829, #0c0f1c);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
+  background: rgba(24, 28, 42, 0.55);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
   padding: 28px 24px 22px;
   text-align: center;
-  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+  animation: drop-in 0.5s var(--spring) both;
+}
+
+.walkthrough-content {
+  transition: opacity 0.2s var(--ease), transform 0.2s var(--ease);
+}
+.walkthrough-content.switching {
+  opacity: 0;
+  transform: translateY(4px);
 }
 
 .walkthrough-skip {

@@ -68,6 +68,7 @@ const WALKTHROUGH_SLIDES = [
 ];
 
 const walkthroughEl = document.getElementById("walkthrough");
+const walkthroughContent = document.getElementById("walkthrough-content");
 const walkthroughIcon = document.getElementById("walkthrough-icon");
 const walkthroughDots = document.getElementById("walkthrough-dots");
 const walkthroughTitle = document.getElementById("walkthrough-title");
@@ -78,7 +79,7 @@ const walkthroughSkip = document.getElementById("walkthrough-skip");
 
 let walkthroughStep = 0;
 
-function renderWalkthroughStep() {
+function applyWalkthroughStep() {
   const slide = WALKTHROUGH_SLIDES[walkthroughStep];
   walkthroughIcon.textContent = slide.icon;
   walkthroughTitle.textContent = slide.title;
@@ -96,6 +97,23 @@ function renderWalkthroughStep() {
   walkthroughNext.textContent = isLast ? "Let's go" : "Next";
 }
 
+// Crossfades the slide content on Next/Back instead of swapping it
+// instantly — matching walkthrough-content's CSS transition duration
+// (200ms) so the fade-out completes before the new slide's text appears.
+const WALKTHROUGH_TRANSITION_MS = 200;
+
+function renderWalkthroughStep({ animate = false } = {}) {
+  if (!animate) {
+    applyWalkthroughStep();
+    return;
+  }
+  walkthroughContent.classList.add("switching");
+  setTimeout(() => {
+    applyWalkthroughStep();
+    walkthroughContent.classList.remove("switching");
+  }, WALKTHROUGH_TRANSITION_MS);
+}
+
 function closeWalkthrough() {
   walkthroughEl.hidden = true;
 }
@@ -103,7 +121,7 @@ function closeWalkthrough() {
 walkthroughNext.addEventListener("click", () => {
   if (walkthroughStep < WALKTHROUGH_SLIDES.length - 1) {
     walkthroughStep++;
-    renderWalkthroughStep();
+    renderWalkthroughStep({ animate: true });
   } else {
     closeWalkthrough();
   }
@@ -112,7 +130,7 @@ walkthroughNext.addEventListener("click", () => {
 walkthroughBack.addEventListener("click", () => {
   if (walkthroughStep > 0) {
     walkthroughStep--;
-    renderWalkthroughStep();
+    renderWalkthroughStep({ animate: true });
   }
 });
 
@@ -127,8 +145,9 @@ renderWalkthroughStep();
 // bowl in view.
 
 btnToggleControls.addEventListener("click", () => {
+  // The arrow itself flips via a CSS rotation transition on .collapsed
+  // (see style.css) rather than swapping glyphs, so it animates smoothly.
   const collapsed = controlsEl.classList.toggle("collapsed");
-  btnToggleControls.innerHTML = collapsed ? "&#9650;" : "&#9660;";
   btnToggleControls.setAttribute("aria-expanded", String(!collapsed));
   btnToggleControls.setAttribute(
     "aria-label",
