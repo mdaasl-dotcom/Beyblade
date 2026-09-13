@@ -4,7 +4,7 @@ import { StadiumBoundary, RingOutWatcher } from "./stadiumCalibration.js";
 import { BattleEngine, MatchState } from "./battleEngine.js";
 import { renderHud, CLASH_FX_DURATION_MS } from "./hud.js";
 import { isArSupported, XrStadiumView } from "./xrView.js";
-import { unlockAudio, playClash, playRingOut, playStaminaOut, playCountdown, vibrate } from "./audio.js";
+import { unlockAudio, playCountdown, vibrate } from "./audio.js";
 
 const videoEl = document.getElementById("camera-feed");
 const canvas = document.getElementById("hud-canvas");
@@ -255,19 +255,12 @@ function logLine(text) {
 function handleBattleEvent(entry) {
   if (entry.type === "collision") {
     showToast(entry.message);
-    playClash();
     vibrate(40);
     if (entry.pos) clashEffects.push({ x: entry.pos.x, y: entry.pos.y, t: performance.now() });
   }
   if (entry.type === "round_over") {
     showToast(entry.message);
-    if (entry.reason === "Ring-Out") {
-      playRingOut();
-      vibrate([30, 40, 60]);
-    } else {
-      playStaminaOut();
-      vibrate([60, 40, 30]);
-    }
+    vibrate(entry.reason === "Ring-Out" ? [30, 40, 60] : [60, 40, 30]);
     winsAEl.textContent = battle.wins.a;
     winsBEl.textContent = battle.wins.b;
     btnStartMatch.disabled = false;

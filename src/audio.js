@@ -1,91 +1,12 @@
-// Lightweight sound effects + haptics for match events. Sounds are
-// synthesized on the fly with the Web Audio API (short oscillator tones and
-// filtered noise bursts) rather than loaded from audio files — keeps this a
-// zero-asset, zero-dependency static app, and it's plenty for a handful of
-// short game "stingers".
+// Spoken match callouts + haptics. No synthesized sound effects (tones,
+// noise bursts) — just the "3, 2, 1, Go Shoot!" voice countdown via the
+// browser's built-in speech synthesis, plus navigator.vibrate() feedback.
 
-let ctx = null;
-
-// Browsers block audio until a real user gesture unlocks it. Call
-// unlockAudio() from an actual click handler (e.g. Start Camera) so the
-// AudioContext exists and is running by the time a match event needs it.
+// Browsers block speech until a real user gesture unlocks it. Call
+// unlockAudio() from an actual click handler (e.g. Start Camera) so voices
+// are loaded and ready well before the countdown needs them.
 export function unlockAudio() {
-  if (!ctx) {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    ctx = new AudioCtx();
-  }
-  if (ctx.state === "suspended") ctx.resume();
-  // Voice lists often load asynchronously after the page loads; touching
-  // getVoices() here (from this same real user gesture) kicks that off so
-  // it's ready well before the countdown needs it.
   window.speechSynthesis?.getVoices();
-}
-
-function tone(startAt, { freq, freqEnd, type = "sine", attack = 0.005, decay = 0.15, peak = 0.3 }) {
-  if (!ctx) return;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = type;
-  const t0 = ctx.currentTime + startAt;
-  osc.frequency.setValueAtTime(freq, t0);
-  if (freqEnd != null) osc.frequency.exponentialRampToValueAtTime(freqEnd, t0 + attack + decay);
-  gain.gain.setValueAtTime(0, t0);
-  gain.gain.linearRampToValueAtTime(peak, t0 + attack);
-  gain.gain.exponentialRampToValueAtTime(0.001, t0 + attack + decay);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(t0);
-  osc.stop(t0 + attack + decay + 0.05);
-}
-
-function noiseBurst({ duration = 0.1, peak = 0.5, filterFreq = 1500 }) {
-  if (!ctx) return;
-  const size = Math.max(1, Math.floor(ctx.sampleRate * duration));
-  const buffer = ctx.createBuffer(1, size, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
-
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  const filter = ctx.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = filterFreq;
-  const gain = ctx.createGain();
-  const t0 = ctx.currentTime;
-  gain.gain.setValueAtTime(peak, t0);
-  gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
-
-  source.connect(filter);
-  filter.connect(gain);
-  gain.connect(ctx.destination);
-  source.start(t0);
-}
-
-/** A sharp metal-on-metal impact: a tight broadband "crack", a few
- *  inharmonic high tones for a brief metallic ring (real metal doesn't ring
- *  at neat harmonic multiples, so deliberately-detuned frequencies read as
- *  "metal" rather than "bell"), and a low thump underneath for weight. */
-export function playClash() {
-  if (!ctx) return;
-  noiseBurst({ duration: 0.045, peak: 0.55, filterFreq: 4200 });
-  for (const [i, freq] of [1900, 2750, 3400].entries()) {
-    tone(0, { freq, type: "triangle", attack: 0.001, decay: 0.1 - i * 0.02, peak: 0.14 - i * 0.03 });
-  }
-  tone(0, { freq: 160, freqEnd: 55, type: "sine", attack: 0.002, decay: 0.13, peak: 0.42 });
-}
-
-/** A rising-then-falling "whoosh" for a Top flying out of the stadium. */
-export function playRingOut() {
-  if (!ctx) return;
-  tone(0, { freq: 500, freqEnd: 1400, type: "sawtooth", attack: 0.03, decay: 0.08, peak: 0.15 });
-  tone(0.08, { freq: 900, freqEnd: 90, type: "sawtooth", attack: 0.01, decay: 0.32, peak: 0.22 });
-}
-
-/** A slow, descending "powering down" tone for a Top spinning to a stop. */
-export function playStaminaOut() {
-  if (!ctx) return;
-  tone(0, { freq: 280, freqEnd: 35, type: "triangle", attack: 0.02, decay: 0.6, peak: 0.25 });
 }
 
 // Best-effort pick of a crisper-sounding voice. Browser TTS only ever gives
@@ -126,9 +47,8 @@ const COUNTDOWN_STEPS = [
 const COUNTDOWN_STEP_MS = 550;
 
 /** Runs the "3, 2, 1, Go Shoot!" launch countdown: speaks each step and
- *  calls onStep(text, isPhrase) so the caller can display it, with a sharp
- *  synth stinger layered under the final shout. Resolves once it's done —
- *  callers should await it before actually starting the round. */
+ *  calls onStep(text, isPhrase) so the caller can display it. Resolves once
+ *  it's done — callers should await it before actually starting the round. */
 export function playCountdown(onStep) {
   unlockAudio();
   return new Promise((resolve) => {
@@ -137,10 +57,6 @@ export function playCountdown(onStep) {
       const s = COUNTDOWN_STEPS[i];
       onStep(s.text, !!s.phrase);
       speak(s.say, { pitch: s.pitch, rate: s.rate });
-      if (s.phrase) {
-        noiseBurst({ duration: 0.15, peak: 0.35, filterFreq: 3200 });
-        tone(0, { freq: 300, freqEnd: 950, type: "square", attack: 0.01, decay: 0.22, peak: 0.22 });
-      }
       i++;
       if (i < COUNTDOWN_STEPS.length) setTimeout(step, COUNTDOWN_STEP_MS);
       else setTimeout(resolve, COUNTDOWN_STEP_MS);
