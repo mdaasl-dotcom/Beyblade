@@ -49,34 +49,36 @@
     <footer id="controls">
       <button id="btn-toggle-controls" aria-label="Hide buttons to see the whole stadium" aria-expanded="true">&#9660;</button>
       <div id="controls-body">
-        <div class="step-row">
-          <button id="btn-start-camera">1. Start Camera</button>
-          <button id="btn-calibrate-stadium" disabled>2. Calibrate Stadium</button>
-          <button id="btn-calibrate-a" disabled>3. Calibrate Player A</button>
-          <button id="btn-calibrate-b" disabled>4. Calibrate Player B</button>
+        <div id="controls-body-inner">
+          <div class="step-row">
+            <button id="btn-start-camera">1. Start Camera</button>
+            <button id="btn-calibrate-stadium" disabled>2. Calibrate Stadium</button>
+            <button id="btn-calibrate-a" disabled>3. Calibrate Player A</button>
+            <button id="btn-calibrate-b" disabled>4. Calibrate Player B</button>
+          </div>
+          <div class="step-row">
+            <select id="camera-select" hidden aria-label="Choose camera"></select>
+          </div>
+          <div class="step-row" id="zoom-row" hidden>
+            <button id="btn-zoom-out" aria-label="Zoom out">&minus;</button>
+            <span id="zoom-label">1.0x</span>
+            <button id="btn-zoom-in" aria-label="Zoom in">+</button>
+          </div>
+          <div class="step-row">
+            <button id="btn-start-match" disabled>Start Match</button>
+            <button id="btn-reset-round" disabled>Reset Round</button>
+            <button id="btn-enter-ar" disabled>Enter AR</button>
+            <button id="btn-debug-view">Show Debug View</button>
+          </div>
+          <div class="step-row" id="tolerance-row" hidden>
+            <label id="tolerance-label" for="tolerance-slider">Match tightness: 14&deg;</label>
+            <input type="range" id="tolerance-slider" min="4" max="35" value="14" step="1" />
+          </div>
+          <div id="help-text">
+            Stadium calibration: tap 6-8 points around the rim of the stadium bowl, then press "Finish".
+          </div>
+          <div id="log-panel"></div>
         </div>
-        <div class="step-row">
-          <select id="camera-select" hidden aria-label="Choose camera"></select>
-        </div>
-        <div class="step-row" id="zoom-row" hidden>
-          <button id="btn-zoom-out" aria-label="Zoom out">&minus;</button>
-          <span id="zoom-label">1.0x</span>
-          <button id="btn-zoom-in" aria-label="Zoom in">+</button>
-        </div>
-        <div class="step-row">
-          <button id="btn-start-match" disabled>Start Match</button>
-          <button id="btn-reset-round" disabled>Reset Round</button>
-          <button id="btn-enter-ar" disabled>Enter AR</button>
-          <button id="btn-debug-view">Show Debug View</button>
-        </div>
-        <div class="step-row" id="tolerance-row" hidden>
-          <label id="tolerance-label" for="tolerance-slider">Match tightness: 14&deg;</label>
-          <input type="range" id="tolerance-slider" min="4" max="35" value="14" step="1" />
-        </div>
-        <div id="help-text">
-          Stadium calibration: tap 6-8 points around the rim of the stadium bowl, then press "Finish".
-        </div>
-        <div id="log-panel"></div>
       </div>
     </footer>
   </div>

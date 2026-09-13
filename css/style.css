@@ -15,7 +15,7 @@
   /* Spring: a slight overshoot-then-settle, like iOS's UIKit spring
      animations. Ease: a plain fast-out-slow-in for fades/size changes that
      shouldn't bounce. */
-  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring: cubic-bezier(0.33, 1.25, 0.4, 1);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -166,17 +166,27 @@ html, body {
   pointer-events: none;
 }
 
+/* A grid track animates smoothly to any actual content height (unlike
+   max-height, which snaps open/closed near-instantly once the animated
+   cap crosses the real content height, then sits idle for the rest of the
+   transition — the "jump, then pause" look). 1fr -> 0fr interpolates the
+   row size continuously regardless of what's inside it; the inner element
+   (min-height:0, overflow:hidden) is what actually gets clipped as the
+   track shrinks. */
 #controls-body {
-  max-height: 480px;
+  display: grid;
+  grid-template-rows: 1fr;
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transition: grid-template-rows 0.4s var(--ease), opacity 0.3s var(--ease);
+}
+#controls-body-inner {
+  min-height: 0;
   overflow: hidden;
-  transition: max-height 0.45s var(--ease), opacity 0.3s var(--ease), transform 0.45s var(--spring);
 }
 #controls.collapsed #controls-body {
-  max-height: 0;
+  grid-template-rows: 0fr;
   opacity: 0;
-  transform: translateY(10px) scale(0.98);
+  transition: grid-template-rows 0.35s var(--ease), opacity 0.2s var(--ease);
 }
 #controls.collapsed #btn-toggle-controls { pointer-events: auto; }
 
@@ -196,7 +206,8 @@ html, body {
   align-items: center;
   justify-content: center;
   transform: translateX(-50%) rotate(0deg);
-  transition: transform 0.4s var(--spring), background 0.2s var(--ease);
+  transition: transform 0.35s var(--spring), background 0.2s var(--ease);
+  will-change: transform;
 }
 #controls.collapsed #btn-toggle-controls { transform: translateX(-50%) rotate(180deg); }
 #btn-toggle-controls:active { transform: translateX(-50%) scale(0.9); }
@@ -222,7 +233,8 @@ button {
   font-weight: 600;
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 6px 16px -10px rgba(0, 0, 0, 0.6);
-  transition: transform 0.4s var(--spring), background 0.2s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  transition: transform 0.35s var(--spring), background 0.2s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  will-change: transform;
 }
 button:active {
   transform: scale(0.94);
