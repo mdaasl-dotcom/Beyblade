@@ -14,6 +14,7 @@ const helpText = document.getElementById("help-text");
 const logPanel = document.getElementById("log-panel");
 const toast = document.getElementById("event-toast");
 const countdownOverlay = document.getElementById("countdown-overlay");
+const countdownRing = document.getElementById("countdown-ring");
 const countdownText = document.getElementById("countdown-text");
 const controlsEl = document.getElementById("controls");
 const btnToggleControls = document.getElementById("btn-toggle-controls");
@@ -440,9 +441,12 @@ function runCountdown() {
   return playCountdown((text, isPhrase) => {
     countdownText.textContent = text;
     countdownText.classList.toggle("phrase", isPhrase);
-    countdownText.style.animation = "none";
-    void countdownText.offsetWidth; // force reflow so the animation replays
-    countdownText.style.animation = "";
+    countdownRing.classList.toggle("phrase", isPhrase);
+    for (const el of [countdownText, countdownRing]) {
+      el.style.animation = "none";
+      void el.offsetWidth; // force reflow so the animation replays
+      el.style.animation = "";
+    }
   }).then(() => {
     countdownOverlay.hidden = true;
   });

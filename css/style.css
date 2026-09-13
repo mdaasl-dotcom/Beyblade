@@ -158,14 +158,37 @@ html, body {
 #countdown-overlay {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   pointer-events: none;
   z-index: 40;
   padding: 20px;
 }
 #countdown-overlay[hidden] { display: none; }
+/* Every direct child shares the same single grid cell, so the ring and the
+   number stack centered on top of each other instead of sitting side by
+   side — later children (the text) paint over earlier ones (the ring). */
+#countdown-overlay > * { grid-area: 1 / 1; }
+
+#countdown-ring {
+  width: 46vmin;
+  height: 46vmin;
+  max-width: 280px;
+  max-height: 280px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 210, 63, 0.55) 0%, rgba(255, 210, 63, 0.22) 45%, rgba(255, 210, 63, 0) 72%);
+  animation: countdown-ring-pulse 0.55s var(--ease) both;
+}
+#countdown-ring.phrase {
+  background: radial-gradient(circle, rgba(255, 84, 112, 0.6) 0%, rgba(255, 84, 112, 0.25) 45%, rgba(255, 84, 112, 0) 72%);
+  animation-duration: 0.6s;
+}
+
+@keyframes countdown-ring-pulse {
+  from { opacity: 0; transform: scale(0.25); }
+  55% { opacity: 1; }
+  to { opacity: 0; transform: scale(1.45); }
+}
 
 #countdown-text {
   font-size: clamp(3.5em, 22vw, 7em);
