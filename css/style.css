@@ -116,9 +116,44 @@ html, body {
 #controls {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: 26px 10px calc(10px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(to top, rgba(0,0,0,0.75), transparent);
+  transition: padding 0.2s ease;
 }
+
+/* Collapsed: shrink the footer down to just the toggle handle so the rest
+   of the camera view (and taps on it, e.g. tracing the stadium rim) is
+   free of both the buttons and the footer's own background/click area. */
+#controls.collapsed {
+  padding-top: 26px;
+  padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  background: none;
+  /* The footer's own box would otherwise still swallow taps meant for the
+     camera view underneath, even fully transparent — only the handle
+     itself should stay tappable. */
+  pointer-events: none;
+}
+#controls.collapsed #controls-body { display: none; }
+#controls.collapsed #btn-toggle-controls { pointer-events: auto; }
+
+#btn-toggle-controls {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 22px;
+  padding: 0;
+  border-radius: 0 0 10px 10px;
+  border-top: none;
+  background: rgba(10, 14, 24, 0.82);
+  font-size: 0.75em;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#btn-toggle-controls:active { transform: translateX(-50%) scale(0.95); }
 
 .step-row {
   display: flex;

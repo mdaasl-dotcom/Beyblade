@@ -12,6 +12,8 @@ const statusLine = document.getElementById("status-line");
 const helpText = document.getElementById("help-text");
 const logPanel = document.getElementById("log-panel");
 const toast = document.getElementById("event-toast");
+const controlsEl = document.getElementById("controls");
+const btnToggleControls = document.getElementById("btn-toggle-controls");
 
 const btnStartCamera = document.getElementById("btn-start-camera");
 const btnCalibrateStadium = document.getElementById("btn-calibrate-stadium");
@@ -117,6 +119,22 @@ walkthroughBack.addEventListener("click", () => {
 walkthroughSkip.addEventListener("click", closeWalkthrough);
 
 renderWalkthroughStep();
+
+// ---------- Collapsible controls ----------
+// Lets the buttons/footer be tucked away so the full camera view is free to
+// tap — useful mainly while tracing the stadium rim, where the footer would
+// otherwise sit on top of (and swallow taps meant for) the bottom of the
+// bowl in view.
+
+btnToggleControls.addEventListener("click", () => {
+  const collapsed = controlsEl.classList.toggle("collapsed");
+  btnToggleControls.innerHTML = collapsed ? "&#9650;" : "&#9660;";
+  btnToggleControls.setAttribute("aria-expanded", String(!collapsed));
+  btnToggleControls.setAttribute(
+    "aria-label",
+    collapsed ? "Show buttons" : "Hide buttons to see the whole stadium"
+  );
+});
 
 // ---------- App state ----------
 
