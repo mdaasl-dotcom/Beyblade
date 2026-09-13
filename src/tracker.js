@@ -103,6 +103,13 @@ export class BlobTracker {
     this.valMin = 0.2;
     this.centroid = null; // {x,y} in processing-canvas space
     this.radius = 6;
+    // A separate, smoothed copy of the radius used only for picking the RPM
+    // ring's sampling radius. this.radius itself is deliberately responsive
+    // (HUD, clash distance), but that means it jitters frame to frame with
+    // measurement noise — sampling the rotation ring at a radius that jumps
+    // around introduces signal differences that look like rotation but
+    // aren't, especially right as a Top wobbles near the end of its spin.
+    this._smoothedRadius = 6;
     this.confidence = 0;
     this.velocity = { x: 0, y: 0 };
     this.rpm = 0;
@@ -169,6 +176,7 @@ export class BlobTracker {
     this.valMin = Math.max(0.15, this.targetHsv[2] * 0.5);
     this.centroid = { x: px, y: py };
     this.radius = 10;
+    this._smoothedRadius = 10;
     this.rpm = 0;
     this.rpmTrustworthy = false;
     this._lowRegimeSince = null;
@@ -278,6 +286,7 @@ export class BlobTracker {
 
     this.centroid = { x: cx, y: cy };
     this.radius = newRadius;
+    this._smoothedRadius = this._smoothedRadius * 0.7 + newRadius * 0.3;
     this.confidence = Math.min(1, this.confidence + 0.2);
     this._lastTimestamp = timestampMs;
 
@@ -301,7 +310,7 @@ export class BlobTracker {
    *  angular shift, i.e. how far the pattern rotated this frame. */
   _updateRotation(frame, timestampMs) {
     const { data, width, height } = frame;
-    const r = Math.max(3, this.radius * 0.7);
+    const r = Math.max(3, this._smoothedRadius * 0.7);
     const signal = new Float32Array(RING_SAMPLES);
     for (let i = 0; i < RING_SAMPLES; i++) {
       const theta = (i / RING_SAMPLES) * Math.PI * 2;

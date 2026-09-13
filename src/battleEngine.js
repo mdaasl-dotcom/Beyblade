@@ -16,8 +16,16 @@ const COLLISION_COOLDOWN_MS = 600;
 // stays accurate regardless of camera zoom/distance.
 const CLASH_GAP_CM = 1;
 const STAMINA_OUT_RPM = 50; // below this we consider a Top to have stopped
-const STAMINA_OUT_CONFIRM_MS = 1500; // must stay below threshold this long
+const STAMINA_OUT_CONFIRM_MS = 1500; // total low-RPM time needed to confirm
 const MIN_RPM_TO_ARM_STAMINA_CHECK = 120; // must have been spinning meaningfully first
+// A real Top often wobbles right as it's about to stop, which can throw a
+// single noisy high RPM reading into an otherwise genuine low streak. A
+// plain streak counter would reset to zero on that one bad frame and could
+// then never accumulate a full confirmation window, so this is a "leaky
+// bucket" instead: low readings fill it, high readings drain it faster than
+// they can fill it, so isolated noise barely dents real progress while a
+// Top that's actually still spinning fast keeps it from ever filling.
+const STAMINA_NOISE_DRAIN_RATE = 2;
 
 export class BattleEngine {
   constructor({ onEvent } = {}) {
@@ -28,7 +36,8 @@ export class BattleEngine {
     this._lastCollisionAt = 0;
     this._collisionCount = 0;
     this._staminaArmed = { a: false, b: false };
-    this._lowRpmSince = { a: null, b: null };
+    this._lowRpmMs = { a: 0, b: 0 };
+    this._lastStaminaCheckAt = { a: null, b: null };
     this._roundWinner = null;
     this._roundReason = null;
   }
@@ -38,7 +47,8 @@ export class BattleEngine {
     this._lastCollisionAt = 0;
     this._collisionCount = 0;
     this._staminaArmed = { a: false, b: false };
-    this._lowRpmSince = { a: null, b: null };
+    this._lowRpmMs = { a: 0, b: 0 };
+    this._lastStaminaCheckAt = { a: null, b: null };
     this._roundWinner = null;
     this._roundReason = null;
   }
@@ -92,21 +102,31 @@ export class BattleEngine {
 
   _checkStamina(key, blob, now) {
     if (!blob.isActive()) {
-      this._lowRpmSince[key] = null;
+      // Tracking dropped out entirely — don't guess either way. Just stop
+      // the clock rather than wiping out progress, so a brief dropout right
+      // at the end of a real spin-down doesn't force the whole confirmation
+      // window to start over once it's reacquired.
+      this._lastStaminaCheckAt[key] = null;
       return;
     }
     if (!this._staminaArmed[key]) {
       if (blob.rpm >= MIN_RPM_TO_ARM_STAMINA_CHECK) this._staminaArmed[key] = true;
       return;
     }
+
+    const lastAt = this._lastStaminaCheckAt[key];
+    const dt = lastAt == null ? 0 : Math.max(0, now - lastAt);
+    this._lastStaminaCheckAt[key] = now;
+
     if (blob.rpm < STAMINA_OUT_RPM) {
-      if (this._lowRpmSince[key] == null) this._lowRpmSince[key] = now;
-      else if (now - this._lowRpmSince[key] >= STAMINA_OUT_CONFIRM_MS) {
-        const otherKey = key === "a" ? "b" : "a";
-        this._finishRound(otherKey, "Stamina-Out");
-      }
+      this._lowRpmMs[key] = Math.min(STAMINA_OUT_CONFIRM_MS, this._lowRpmMs[key] + dt);
     } else {
-      this._lowRpmSince[key] = null;
+      this._lowRpmMs[key] = Math.max(0, this._lowRpmMs[key] - dt * STAMINA_NOISE_DRAIN_RATE);
+    }
+
+    if (this._lowRpmMs[key] >= STAMINA_OUT_CONFIRM_MS) {
+      const otherKey = key === "a" ? "b" : "a";
+      this._finishRound(otherKey, "Stamina-Out");
     }
   }
 
