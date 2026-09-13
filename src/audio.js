@@ -62,12 +62,17 @@ function noiseBurst({ duration = 0.1, peak = 0.5, filterFreq = 1500 }) {
   source.start(t0);
 }
 
-/** A sharp percussive hit — filtered noise for the "crack" plus a quick
- *  low-frequency thump underneath, for a Top-on-Top clash. */
+/** A sharp metal-on-metal impact: a tight broadband "crack", a few
+ *  inharmonic high tones for a brief metallic ring (real metal doesn't ring
+ *  at neat harmonic multiples, so deliberately-detuned frequencies read as
+ *  "metal" rather than "bell"), and a low thump underneath for weight. */
 export function playClash() {
   if (!ctx) return;
-  noiseBurst({ duration: 0.08, peak: 0.5, filterFreq: 2200 });
-  tone(0, { freq: 150, freqEnd: 60, type: "sine", attack: 0.002, decay: 0.1, peak: 0.4 });
+  noiseBurst({ duration: 0.045, peak: 0.55, filterFreq: 4200 });
+  for (const [i, freq] of [1900, 2750, 3400].entries()) {
+    tone(0, { freq, type: "triangle", attack: 0.001, decay: 0.1 - i * 0.02, peak: 0.14 - i * 0.03 });
+  }
+  tone(0, { freq: 160, freqEnd: 55, type: "sine", attack: 0.002, decay: 0.13, peak: 0.42 });
 }
 
 /** A rising-then-falling "whoosh" for a Top flying out of the stadium. */
