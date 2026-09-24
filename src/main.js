@@ -4,7 +4,7 @@ import { StadiumBoundary, RingOutWatcher } from "./stadiumCalibration.js";
 import { BattleEngine, MatchState } from "./battleEngine.js";
 import { renderHud, CLASH_FX_DURATION_MS } from "./hud.js";
 import { isArSupported, XrStadiumView } from "./xrView.js";
-import { unlockAudio, playCountdown, vibrate } from "./audio.js";
+import { playCountdown, vibrate } from "./audio.js";
 
 const videoEl = document.getElementById("camera-feed");
 const canvas = document.getElementById("hud-canvas");
@@ -273,10 +273,6 @@ function handleBattleEvent(entry) {
 }
 
 btnStartCamera.addEventListener("click", async () => {
-  // Must happen synchronously inside a real click handler — browsers won't
-  // let audio play later without one, so this is the one guaranteed user
-  // gesture in the whole flow.
-  unlockAudio();
   btnStartCamera.disabled = true;
   setStatus("Requesting camera access…");
   try {
