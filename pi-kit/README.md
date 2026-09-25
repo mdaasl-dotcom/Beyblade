@@ -5,24 +5,35 @@ appliance: plug in power, a USB webcam, and a display — it boots straight
 into a live tracking screen, no phone, no WiFi, no keyboard needed after
 setup.
 
-## Recommended hardware (budget build, ~$105–120 in parts)
+## What's in the kit vs. what the buyer supplies
+
+The kit ships just the Pi (preloaded via the steps below) and the printed
+card. The buyer supplies their own **stadium + tops**, **USB webcam**, and
+**HDMI display** — this is a tracker add-on for a stadium they already
+own (or buy separately), not a full toy set, which keeps the kit itself
+cheap and lets everyone use whatever hardware they already have.
+
+## Recommended hardware (budget build, ~$65–70 in kit parts)
 
 - **Raspberry Pi 4, 2GB is enough.** The tracker only processes a 240px-
   wide frame in JS — it's not a demanding workload, so the cheapest Pi 4
   variant (~$45) handles it fine. Pi 5 or more RAM is a "nice to have
   more headroom" upgrade, not a requirement. A Pi Zero 2 W is NOT
   recommended — its CPU is meaningfully weaker and live tracking will lag.
-- **A plain, cheap USB webcam (~$10-15).** The app uses the standard
-  browser camera API (`getUserMedia`), which any USB webcam satisfies with
-  zero extra setup. Avoid the ribbon-cable Pi Camera Module — it needs an
-  extra `libcamera`/`v4l2loopback` driver bridge to even be visible to a
-  browser, and that setup is fragile and version-dependent.
-- A display (HDMI monitor/TV — buyer-supplied, not part of the kit), and a
-  microSD card (~16GB is plenty, ~$6) with **Raspberry Pi OS with Desktop**
-  (Bookworm or newer) already flashed and booted at least once (so it's
-  past first-boot setup).
-- A USB-C power supply (~$8) and a basic case (~$6) round out the parts
-  list.
+- A microSD card (~16GB is plenty, ~$6) with **Raspberry Pi OS with
+  Desktop** (Bookworm or newer) already flashed and booted at least once
+  (so it's past first-boot setup).
+- A USB-C power supply (~$8) and a basic case (~$6) round out the Pi side.
+
+### The webcam the buyer brings
+
+Any standard USB webcam works — the app uses the browser's standard
+camera API (`getUserMedia`), which every USB webcam satisfies with zero
+extra setup, same as it already works on a phone or laptop. Worth a line
+on the kit card or instructions: **avoid a built-in laptop-style ribbon
+camera or the Raspberry Pi Camera Module** — the Pi Camera needs an extra
+`libcamera`/`v4l2loopback` driver bridge to even be visible to a browser,
+which is fragile and version-dependent, and isn't set up by this script.
 
 ## One-time setup (per Pi)
 
