@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Spin Battle Tracker — Tracker Kit</title>
+<meta name="description" content="A plug-in Raspberry Pi that turns any spin-top stadium into a live AR battle tracker — position, RPM, clashes, ring-outs, all on screen in real time." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #05070d;
+    --panel: rgba(14, 18, 30, 0.86);
+    --glass-fill: rgba(255, 255, 255, 0.06);
+    --glass-fill-strong: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --text: #eef2ff;
+    --muted: #93a0c2;
+    --muted-dim: #5c6690;
+    --yellow: #ffd23f;
+    --pink: #ff5470;
+    --blue: #29c5ff;
+    --radius: 20px;
+    --display: "Chakra Petch", -apple-system, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  body {
+    padding: 0 20px;
+    background:
+      radial-gradient(900px 500px at 15% -5%, rgba(255, 84, 112, 0.16), transparent 60%),
+      radial-gradient(900px 600px at 90% 10%, rgba(41, 197, 255, 0.14), transparent 55%),
+      var(--bg);
+  }
+
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  img, svg { max-width: 100%; }
+
+  /* ---------- Nav ---------- */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: 22px;
+  }
+  .wordmark {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.05em;
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .wordmark .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--yellow); flex: none; }
+  nav a.try-link {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.88em;
+    font-weight: 600;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-fill);
+    padding: 8px 16px;
+    border-radius: 999px;
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  nav a.try-link:hover { color: var(--text); border-color: var(--yellow); }
+
+  /* ---------- Hero ---------- */
+  header.hero {
+    padding-block: 48px 40px;
+    text-align: center;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.8em;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--yellow);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .eyebrow::before, .eyebrow::after { content: ""; width: 26px; height: 1px; background: var(--yellow); opacity: 0.5; }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2.2em, 6.4vw, 3.6em);
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    margin: 0 0 20px;
+    text-wrap: balance;
+  }
+  h1 .accent { color: var(--yellow); }
+
+  .lede {
+    color: var(--muted);
+    font-size: 1.15em;
+    line-height: 1.6;
+    max-width: 560px;
+    margin: 0 auto 36px;
+    text-wrap: balance;
+  }
+
+  .hero-ctas {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .btn {
+    font-family: "Inter", sans-serif;
+    font-weight: 700;
+    font-size: 1em;
+    border-radius: 999px;
+    padding: 15px 30px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid transparent;
+    transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.4, 1), box-shadow 0.2s ease;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn-primary {
+    background: var(--yellow);
+    color: #1a1400;
+    box-shadow: 0 14px 34px -14px rgba(255, 210, 63, 0.55);
+  }
+  .btn-primary:hover { box-shadow: 0 18px 38px -12px rgba(255, 210, 63, 0.7); }
+  .btn-primary .price { font-family: var(--mono); opacity: 0.75; font-weight: 600; }
+  .btn-secondary {
+    background: var(--glass-fill);
+    border-color: var(--glass-border);
+    color: var(--text);
+  }
+  .btn-secondary:hover { border-color: var(--muted); }
+
+  .hero-note { color: var(--muted-dim); font-size: 0.82em; }
+
+  /* ---------- Hero device graphic ---------- */
+  .device-card {
+    margin: 44px auto 0;
+    max-width: 520px;
+    background: var(--panel);
+    border: 1px solid var(--glass-border);
+    border-radius: 28px;
+    padding: 30px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 30px 70px -30px rgba(0,0,0,0.8);
+  }
+  .device-frame {
+    aspect-ratio: 16 / 10;
+    border-radius: 18px;
+    background: radial-gradient(circle at 50% 40%, #0f2a1a, #05130c 70%);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .device-frame .ring {
+    position: absolute;
+    inset: 18% 26%;
+    border: 3px dashed rgba(255,210,63,0.55);
+    border-radius: 50%;
+  }
+  .device-frame .dot { position: absolute; width: 26px; height: 26px; border-radius: 50%; box-shadow: 0 0 0 4px rgba(255,255,255,0.12); }
+  .device-frame .dot-a { background: var(--pink); top: 44%; left: 38%; }
+  .device-frame .dot-b { background: var(--blue); top: 52%; left: 58%; }
+  .device-frame .label { position: absolute; font-family: var(--mono); font-size: 0.72em; color: rgba(255,255,255,0.55); }
+  .device-frame .label-a { top: 44%; left: 44%; color: var(--pink); }
+  .device-frame .label-b { top: 52%; left: 64%; color: var(--blue); }
+  .device-hud { position: absolute; top: 14px; left: 0; right: 0; text-align: center; font-family: var(--mono); font-size: 0.72em; color: var(--muted); letter-spacing: 0.05em; }
+  .device-caption { text-align: center; color: var(--muted-dim); font-size: 0.78em; margin-top: 16px; font-family: var(--mono); }
+
+  /* ---------- Section shared ---------- */
+  section { padding-block: 56px; }
+  .section-head { text-align: center; margin-bottom: 36px; }
+  .section-head .eyebrow { margin-bottom: 10px; }
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(1.5em, 4vw, 2em);
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+  .section-head p { color: var(--muted); max-width: 480px; margin: 0 auto; }
+
+  /* ---------- Feature grid ---------- */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .feature {
+    background: var(--glass-fill);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 22px;
+  }
+  .feature .icon {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    background: rgba(255,210,63,0.12);
+    border: 1px solid rgba(255,210,63,0.35);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2em;
+    margin-bottom: 14px;
+  }
+  .feature h3 { font-size: 1em; margin: 0 0 6px; font-weight: 700; }
+  .feature p { color: var(--muted); font-size: 0.9em; line-height: 1.5; margin: 0; }
+
+  /* ---------- Included / needed ---------- */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 640px) { .split { grid-template-columns: 1fr; } }
+  .split-card {
+    border-radius: var(--radius);
+    padding: 26px;
+    border: 1px solid var(--glass-border);
+  }
+  .split-card.included { background: rgba(255, 210, 63, 0.07); border-color: rgba(255, 210, 63, 0.3); }
+  .split-card.needed { background: var(--glass-fill); }
+  .split-card h3 {
+    font-family: var(--mono);
+    font-size: 0.78em;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 16px;
+  }
+  .split-card.included h3 { color: var(--yellow); }
+  .split-card.needed h3 { color: var(--muted); }
+  .split-card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  .split-card li { display: flex; gap: 10px; font-size: 0.95em; line-height: 1.4; }
+  .split-card .mark { flex: none; width: 20px; }
+  .split-card.included .mark { color: var(--yellow); }
+  .split-card.needed .mark { color: var(--muted-dim); }
+
+  /* ---------- Steps ---------- */
+  .steps { display: flex; flex-direction: column; gap: 4px; }
+  .step {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    padding: 18px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .step:last-child { border-bottom: none; }
+  .step .num {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.3em;
+    color: var(--yellow);
+    width: 36px;
+    flex: none;
+  }
+  .step p { margin: 4px 0 0; color: var(--muted); }
+  .step strong { color: var(--text); }
+
+  /* ---------- Price block ---------- */
+  .price-block {
+    text-align: center;
+    background: var(--panel);
+    border: 1px solid var(--glass-border);
+    border-radius: 28px;
+    padding: 48px 30px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 30px 70px -30px rgba(0,0,0,0.8);
+  }
+  .price-tag {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2.4em, 8vw, 3.4em);
+    color: var(--yellow);
+    line-height: 1;
+  }
+  .price-tag span { font-size: 0.4em; color: var(--muted); font-weight: 600; margin-left: 6px; }
+  .price-block p.blurb { color: var(--muted); max-width: 420px; margin: 14px auto 28px; }
+
+  /* ---------- FAQ ---------- */
+  details {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 18px 4px;
+  }
+  details:last-child { border-bottom: none; }
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after {
+    content: "+";
+    font-family: var(--display);
+    font-size: 1.3em;
+    color: var(--yellow);
+    flex: none;
+    transition: transform 0.2s ease;
+  }
+  details[open] summary::after { transform: rotate(45deg); }
+  details p { color: var(--muted); margin: 12px 0 2px; line-height: 1.6; font-size: 0.95em; }
+
+  /* ---------- Footer ---------- */
+  footer {
+    padding-block: 40px 60px;
+    text-align: center;
+    color: var(--muted-dim);
+    font-size: 0.82em;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    margin-top: 20px;
+  }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <div class="wordmark"><span class="dot"></span>SPIN BATTLE TRACKER</div>
+      <a class="try-link" href="index.html">Try the free app &rarr;</a>
+    </nav>
+
+    <header class="hero">
+      <div class="eyebrow">TRACKER KIT</div>
+      <h1>Turn any stadium into a <span class="accent">live AR battle arena</span></h1>
+      <p class="lede">
+        A plug-in Raspberry Pi that watches your stadium and calls the match
+        for you &mdash; position, spin, clashes, ring-outs, all tracked live
+        on screen. No app, no phone, no WiFi required.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#buy">Get the Tracker Kit <span class="price">&mdash; $200</span></a>
+        <a class="btn btn-secondary" href="index.html">Try it free in your browser</a>
+      </div>
+      <div class="hero-note">One-time purchase &middot; ships worldwide &middot; works with any stadium</div>
+
+      <div class="device-card">
+        <div class="device-frame">
+          <div class="device-hud">PLAYER A &nbsp;0&nbsp;&nbsp;VS&nbsp;&nbsp;0&nbsp; PLAYER B</div>
+          <div class="ring"></div>
+          <div class="dot dot-a"></div>
+          <div class="label label-a">A &middot; 4,200 RPM</div>
+          <div class="dot dot-b"></div>
+          <div class="label label-b">B &middot; 3,850 RPM</div>
+        </div>
+        <div class="device-caption">LIVE TRACKING OVERLAY &mdash; ILLUSTRATIVE</div>
+      </div>
+    </header>
+
+    <section id="features">
+      <div class="section-head">
+        <div class="eyebrow">WHAT IT DOES</div>
+        <h2>Everything a real referee would track</h2>
+        <p>Point the camera at your stadium once. Everything after that is automatic.</p>
+      </div>
+      <div class="features">
+        <div class="feature">
+          <div class="icon">&#127919;</div>
+          <h3>Position tracking</h3>
+          <p>Follows both Tops frame by frame, even when they're moving fast or clash mid-spin.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">&#128260;</div>
+          <h3>Spin readout</h3>
+          <p>Estimates RPM live from each Top's own surface pattern &mdash; no sensors, no stickers required.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">&#9889;</div>
+          <h3>Clash detection</h3>
+          <p>Calls every collision the instant it happens, with a visual spark right at the impact point.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">&#127937;</div>
+          <h3>Ring-Out &amp; Stamina-Out</h3>
+          <p>Calibrate your stadium's rim once &mdash; it calls the round the moment a Top is out or spun down.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">&#128268;</div>
+          <h3>Plug in and play</h3>
+          <p>Boots straight into a live tracking screen. No account, no app install, no WiFi needed after setup.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">&#127942;</div>
+          <h3>Live scoreboard</h3>
+          <p>Tracks wins across rounds automatically, so you can run a full tournament without keeping score by hand.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="included">
+      <div class="section-head">
+        <div class="eyebrow">THE KIT</div>
+        <h2>What's in the box, what you bring</h2>
+      </div>
+      <div class="split">
+        <div class="split-card included">
+          <h3>In the kit</h3>
+          <ul>
+            <li><span class="mark">&#10003;</span> Raspberry Pi, preloaded and ready &mdash; just power it on</li>
+            <li><span class="mark">&#10003;</span> Quick-start card with setup steps</li>
+            <li><span class="mark">&#10003;</span> Lifetime software updates for the kit</li>
+          </ul>
+        </div>
+        <div class="split-card needed">
+          <h3>You'll also need</h3>
+          <ul>
+            <li><span class="mark">&#8226;</span> Your stadium and Tops (any brand)</li>
+            <li><span class="mark">&#8226;</span> Any USB webcam</li>
+            <li><span class="mark">&#8226;</span> An HDMI display or TV</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-works">
+      <div class="section-head">
+        <div class="eyebrow">SETUP</div>
+        <h2>Plugged in and battling in under two minutes</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="num">1</div>
+          <div><strong>Plug in your webcam and display.</strong><p>Any standard USB webcam and any HDMI screen work.</p></div>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <div><strong>Aim the camera at your stadium, then power on.</strong><p>It boots straight into the tracker &mdash; no setup screen, no login.</p></div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div><strong>Trace your stadium's rim on screen once.</strong><p>That's what makes Ring-Out detection accurate to your exact bowl.</p></div>
+        </div>
+        <div class="step">
+          <div class="num">4</div>
+          <div><strong>Tap each Top once to lock on, then battle.</strong><p>Clashes, spin, and round results are all called live from there.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="buy">
+      <div class="price-block">
+        <div class="eyebrow">ONE-TIME PURCHASE</div>
+        <div class="price-tag">$200<span>USD</span></div>
+        <p class="blurb">Ships worldwide. Preloaded and tested before it leaves &mdash; plug in a webcam and display and it just works.</p>
+        <a class="btn btn-primary" href="mailto:TODO_REPLACE_WITH_YOUR_EMAIL?subject=Spin%20Battle%20Tracker%20Kit%20order">Order the Tracker Kit</a>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="section-head">
+        <div class="eyebrow">FAQ</div>
+        <h2>Questions people ask before buying</h2>
+      </div>
+      <details>
+        <summary>Does this work with my stadium and Tops?</summary>
+        <p>Yes &mdash; it tracks by color and motion, not a specific brand or model. Works with any spin-top stadium and any Tops, including mismatched or matching-colored ones.</p>
+      </details>
+      <details>
+        <summary>Do I need WiFi or an account?</summary>
+        <p>No. Everything runs locally on the Pi once it's set up &mdash; no internet connection, login, or subscription required to use it.</p>
+      </details>
+      <details>
+        <summary>Is this an official Beyblade product?</summary>
+        <p>No &mdash; Spin Battle Tracker is an independent tracking accessory, not affiliated with or endorsed by any spin-top brand. It works with whatever stadium and tops you already have.</p>
+      </details>
+      <details>
+        <summary>Can I just try it without buying anything?</summary>
+        <p>Yes &mdash; the full tracker runs free in any phone or laptop browser, no kit required. <a href="index.html" style="color:var(--yellow)">Try it here</a>.</p>
+      </details>
+      <details>
+        <summary>What if I don't have a USB webcam or HDMI display?</summary>
+        <p>Any basic USB webcam (even an old one) and any HDMI monitor or TV will work &mdash; they're inexpensive and easy to find if you don't already have one.</p>
+      </details>
+    </section>
+
+    <footer>
+      Spin Battle Tracker &middot; <a href="index.html">Free web app</a>
+    </footer>
+  </div>
+</body>
+</html>
