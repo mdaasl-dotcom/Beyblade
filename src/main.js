@@ -272,7 +272,7 @@ function handleBattleEvent(entry) {
   logLine(entry.message);
 }
 
-btnStartCamera.addEventListener("click", async () => {
+async function startCamera() {
   btnStartCamera.disabled = true;
   setStatus("Requesting camera access…");
   try {
@@ -289,7 +289,20 @@ btnStartCamera.addEventListener("click", async () => {
     setStatus(`Camera error: ${err.message}`);
     btnStartCamera.disabled = false;
   }
-});
+}
+
+btnStartCamera.addEventListener("click", startCamera);
+
+// ---------- Kiosk mode ----------
+// For the Raspberry Pi kit (see pi-kit/): loading the app as
+// index.html?kiosk=1 skips the walkthrough and starts the camera
+// automatically, so a Pi with no keyboard/mouse attached boots straight
+// into a live, tracking-ready screen. Has no effect on a normal phone/
+// laptop visit — the query param is never present there.
+if (new URLSearchParams(location.search).get("kiosk") === "1") {
+  closeWalkthrough();
+  startCamera();
+}
 
 /** Shows a camera picker once more than one video input is available —
  *  e.g. a laptop's built-in webcam alongside a phone used as a webcam via
