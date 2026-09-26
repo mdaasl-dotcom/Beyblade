@@ -128,7 +128,17 @@ export class BlobTracker {
     const [targetH] = this.targetHsv;
     let dh = Math.abs(h - targetH);
     if (dh > 180) dh = 360 - dh;
-    return dh <= this.hueTolerance && s >= this.satMin && v >= this.valMin;
+    // Fast motion blurs a Top's color across pixels — the blur mixes in
+    // the background, which desaturates and darkens it — so a Top can
+    // drop below the calibrated color thresholds purely from moving fast,
+    // right when losing lock matters most (a launch dash, or flying off
+    // after a clash). Loosen the thresholds proportionally to how fast
+    // it was actually moving last frame, rather than leaving them fixed.
+    const speedFactor = Math.min(1, this.speed / 900);
+    const hueTolerance = this.hueTolerance + speedFactor * 10;
+    const satMin = this.satMin * (1 - speedFactor * 0.4);
+    const valMin = this.valMin * (1 - speedFactor * 0.4);
+    return dh <= hueTolerance && s >= satMin && v >= valMin;
   }
 
   /** For the debug overlay: samples every `stride`th pixel across the whole
@@ -206,11 +216,29 @@ export class BlobTracker {
     const locked = this.centroid && this.confidence > LOCK_CONFIDENCE_THRESHOLD;
     let minX = 0, minY = 0, maxX = width, maxY = height;
     if (locked) {
-      const r = this.radius * SEARCH_MARGIN + 12;
-      minX = Math.max(0, Math.floor(this.centroid.x - r));
-      minY = Math.max(0, Math.floor(this.centroid.y - r));
-      maxX = Math.min(width, Math.ceil(this.centroid.x + r));
-      maxY = Math.min(height, Math.ceil(this.centroid.y + r));
+      // Predict where the Top likely is *this* frame from its last known
+      // velocity, instead of just re-centering the search on where it was
+      // last frame. A fast-moving or just-launched Top can travel well
+      // outside a position-only search window between frames — especially
+      // on a laggy camera pipeline where the gap between frames is bigger
+      // than it looks — which otherwise forces a full-frame reacquire
+      // (slower, and more likely to mis-pick between same-colored Tops)
+      // purely because the ROI trailed behind instead of leading it.
+      const dtSincePrediction = this._lastTimestamp != null
+        ? Math.min(0.15, Math.max(0, (timestampMs - this._lastTimestamp) / 1000))
+        : 0;
+      const searchCenterX = this.centroid.x + this.velocity.x * dtSincePrediction;
+      const searchCenterY = this.centroid.y + this.velocity.y * dtSincePrediction;
+      // Extra margin proportional to how far the prediction itself moved
+      // the center, to absorb the Top accelerating/changing direction
+      // (e.g. bouncing off the stadium wall) rather than just trusting a
+      // constant-velocity prediction exactly.
+      const speedBoost = Math.hypot(this.velocity.x, this.velocity.y) * dtSincePrediction * 0.6;
+      const r = this.radius * SEARCH_MARGIN + 12 + speedBoost;
+      minX = Math.max(0, Math.floor(searchCenterX - r));
+      minY = Math.max(0, Math.floor(searchCenterY - r));
+      maxX = Math.min(width, Math.ceil(searchCenterX + r));
+      maxY = Math.min(height, Math.ceil(searchCenterY + r));
     }
 
     const minPixels = 4;
