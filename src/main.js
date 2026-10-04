@@ -5,50 +5,6 @@ import { BattleEngine, MatchState } from "./battleEngine.js";
 import { renderHud, CLASH_FX_DURATION_MS } from "./hud.js";
 import { isArSupported, XrStadiumView } from "./xrView.js";
 import { playCountdown, vibrate } from "./audio.js";
-import { getStoredLicense, verifyLicense, PURCHASE_URL } from "./license.js";
-
-// ---------- License gate ----------
-// Blocks the rest of the app until a valid key is entered. Checked first,
-// before anything else initializes, so nothing camera/tracking-related is
-// reachable while locked.
-
-const licenseGate = document.getElementById("license-gate");
-const licenseKeyInput = document.getElementById("license-key-input");
-const licenseUnlockBtn = document.getElementById("license-unlock-btn");
-const licenseError = document.getElementById("license-error");
-const licenseBuyLink = document.getElementById("license-buy-link");
-
-licenseBuyLink.href = PURCHASE_URL;
-
-if (getStoredLicense()) {
-  licenseGate.hidden = true;
-}
-
-licenseUnlockBtn.addEventListener("click", async () => {
-  const key = licenseKeyInput.value;
-  licenseUnlockBtn.disabled = true;
-  licenseUnlockBtn.textContent = "Checking…";
-  licenseError.hidden = true;
-  try {
-    const valid = await verifyLicense(key);
-    if (valid) {
-      licenseGate.hidden = true;
-    } else {
-      licenseError.textContent = "That key doesn't look right. Double-check it and try again.";
-      licenseError.hidden = false;
-    }
-  } catch {
-    licenseError.textContent = "Couldn't reach the license server — check your connection and try again.";
-    licenseError.hidden = false;
-  } finally {
-    licenseUnlockBtn.disabled = false;
-    licenseUnlockBtn.textContent = "Unlock";
-  }
-});
-
-licenseKeyInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") licenseUnlockBtn.click();
-});
 
 const videoEl = document.getElementById("camera-feed");
 const canvas = document.getElementById("hud-canvas");
