@@ -11,6 +11,31 @@ const SEARCH_MARGIN = 2.5; // how much the ROI grows around the last-known blob 
 const LOCK_CONFIDENCE_THRESHOLD = 0.15; // below this, search the whole frame to reacquire
 const CLUSTER_MERGE_RADIUS = 18; // points within this distance are treated as one blob
 
+// How fast the calibrated target color is allowed to drift toward what a
+// confident, stationary-ish lock is actually seeing. Lighting conditions
+// (a shadow crossing the stadium, a camera auto-adjusting exposure) can
+// slowly shift a Top's apparent color well past its frozen calibration
+// value over the course of a long match. Slow enough that a genuinely
+// different color (e.g. the other Top drifting into view) can't "fix"
+// itself into a false match within a few frames.
+const COLOR_DRIFT_RATE = 0.015;
+// Only drift while translating slowly: the speed-adaptive tolerance in
+// _isMatch() admits background-tinted, motion-blurred pixels once a Top is
+// moving fast, and those would otherwise corrupt the drift with exactly the
+// blur we're trying to stay robust to.
+const COLOR_DRIFT_MAX_SPEED = 250;
+const COLOR_DRIFT_MIN_SAT = 0.15; // never drift toward a washed-out/gray sample
+
+// Confidence used to move by a flat +-0.2/-0.15 per updatePosition() call,
+// which quietly assumed ~30fps: a laggy camera pipeline calling this less
+// often would take longer in wall-clock time to declare lock lost (or
+// reacquired) than a fast one, purely from being called less frequently.
+// Expressed per-second instead and scaled by actual elapsed time, these
+// match the old per-call amounts exactly at a 30fps baseline.
+const CONFIDENCE_GROWTH_PER_SEC = 6; // 0.2 / (1/30)
+const CONFIDENCE_DECAY_PER_SEC = 4.5; // 0.15 / (1/30)
+const CONFIDENCE_DT_CAP = 0.5; // guard against a huge step after a long pause (tab backgrounded, etc.)
+
 // Real Tops spin at roughly 5,000-12,000 RPM. A camera sampling at
 // ~30-60fps can only unambiguously resolve rotation up to about half a
 // revolution per frame before the reading aliases into a plausible-looking
@@ -119,6 +144,13 @@ export class BlobTracker {
     this._rotationLastTimestamp = null;
     this._lastAngleOffset = 0;
     this._lastTimestamp = null;
+    // Separate from _lastTimestamp (which only advances on a *successful*
+    // match): this tracks wall-clock time across every updatePosition()
+    // call, success or miss, so confidence can decay/grow at a fixed rate
+    // per second rather than a fixed amount per call — a laggy camera
+    // pipeline calling this less often shouldn't make losing lock take
+    // longer in real time than it would on a fast one.
+    this._lastCallTimestamp = null;
     this._history = []; // recent centroids for smoothing/velocity
     this._fullHistory = []; // whole-round path, for the full-trail recap
   }
@@ -139,6 +171,28 @@ export class BlobTracker {
     const satMin = this.satMin * (1 - speedFactor * 0.4);
     const valMin = this.valMin * (1 - speedFactor * 0.4);
     return dh <= hueTolerance && s >= satMin && v >= valMin;
+  }
+
+  /** Nudges targetHsv a small step toward an observed color, and re-derives
+   *  satMin/valMin from it exactly as calibrate() does — keeping the match
+   *  thresholds consistent with whatever color is now considered "target"
+   *  instead of leaving them pinned to the original calibration sample. */
+  _driftTargetColor(observedH, observedS, observedV) {
+    const [targetH, targetS, targetV] = this.targetHsv;
+    // Hue wraps at 360, so lerp the *shorter* angular distance rather than
+    // the raw difference — otherwise a target near 350° drifting toward an
+    // observed 5° would swing the long way around through 180°.
+    let dh = observedH - targetH;
+    if (dh > 180) dh -= 360;
+    if (dh < -180) dh += 360;
+    let newH = targetH + dh * COLOR_DRIFT_RATE;
+    if (newH < 0) newH += 360;
+    if (newH >= 360) newH -= 360;
+    const newS = targetS + (observedS - targetS) * COLOR_DRIFT_RATE;
+    const newV = targetV + (observedV - targetV) * COLOR_DRIFT_RATE;
+    this.targetHsv = [newH, newS, newV];
+    this.satMin = Math.max(0.2, newS * 0.55);
+    this.valMin = Math.max(0.15, newV * 0.5);
   }
 
   /** For the debug overlay: samples every `stride`th pixel across the whole
@@ -192,6 +246,7 @@ export class BlobTracker {
     this._lowRegimeSince = null;
     this._prevSignal = null;
     this._rotationLastTimestamp = null;
+    this._lastCallTimestamp = null;
     this._history = [];
     this._fullHistory = [];
     // Shiny metal/gray/white/near-black spots have low saturation, so hue
@@ -207,6 +262,15 @@ export class BlobTracker {
   updatePosition(frame, timestampMs) {
     if (!this.targetHsv) return;
     const { data, width, height } = frame;
+
+    // Elapsed wall-clock time since the *previous call* (success or miss
+    // alike) — see CONFIDENCE_GROWTH_PER_SEC/CONFIDENCE_DECAY_PER_SEC above.
+    // Assume a typical ~30fps gap for the very first call, rather than 0
+    // (which would freeze confidence) or an undefined jump.
+    const dtCall = this._lastCallTimestamp != null
+      ? Math.min(CONFIDENCE_DT_CAP, Math.max(0, (timestampMs - this._lastCallTimestamp) / 1000))
+      : 1 / 30;
+    this._lastCallTimestamp = timestampMs;
 
     // Only trust the small region-of-interest search while we still have a
     // confident lock. Once confidence has decayed (the Top moved out of
@@ -243,6 +307,11 @@ export class BlobTracker {
 
     const minPixels = 4;
     let cx, cy, count, variance;
+    // Circular-mean components for hue (can't just average hue degrees
+    // directly — it wraps at 360) plus a plain sum for saturation/value,
+    // gathered alongside the position scan so color-drift compensation
+    // below is free: no second pass over the matched pixels.
+    let sumCos = 0, sumSin = 0, sSum = 0, vSum = 0;
 
     if (locked) {
       // Small region, effectively one object expected in it: a running sum
@@ -256,6 +325,9 @@ export class BlobTracker {
           if (this._isMatch(h, s, v)) {
             sumX += x; sumY += y; count++;
             sumX2 += x * x;
+            const rad = (h * Math.PI) / 180;
+            sumCos += Math.cos(rad); sumSin += Math.sin(rad);
+            sSum += s; vSum += v;
           }
         }
       }
@@ -268,8 +340,24 @@ export class BlobTracker {
       // Full-frame reacquire: collect every matching point and cluster them,
       // since another Top sharing this same color could be visible
       // anywhere in the frame too. Pick whichever cluster is closest to
-      // where this Top was last seen, rather than averaging everything
-      // into one meaningless midpoint between two separate objects.
+      // where this Top is now *predicted* to be, rather than where it was
+      // last seen — after a clash sends two identically-colored Tops flying
+      // apart, the last-known position sits roughly between them, which is
+      // nearly equidistant to both and prone to picking the wrong one. The
+      // velocity recorded right before lock was lost is still the best
+      // available signal for which side it went.
+      let predictedX = this.centroid ? this.centroid.x : null;
+      let predictedY = this.centroid ? this.centroid.y : null;
+      if (this.centroid && this._lastTimestamp != null) {
+        // Capped: this is extrapolating across however long the Top has
+        // been lost (could be several frames), not one frame gap, so an
+        // unbounded projection could run the predicted point arbitrarily
+        // far from reality if it's been lost for a while or has since
+        // changed direction (e.g. bounced off a wall while out of lock).
+        const dtLost = Math.min(0.3, Math.max(0, (timestampMs - this._lastTimestamp) / 1000));
+        predictedX += this.velocity.x * dtLost;
+        predictedY += this.velocity.y * dtLost;
+      }
       const points = [];
       for (let y = minY; y < maxY; y++) {
         for (let x = minX; x < maxX; x++) {
@@ -280,17 +368,17 @@ export class BlobTracker {
       }
       const clusters = clusterPoints(points, CLUSTER_MERGE_RADIUS).filter((c) => c.count >= minPixels);
       if (clusters.length > 0) {
-        const best = this.centroid
+        const best = predictedX != null
           ? clusters.reduce((a, b) =>
-              Math.hypot(a.x - this.centroid.x, a.y - this.centroid.y) <=
-              Math.hypot(b.x - this.centroid.x, b.y - this.centroid.y) ? a : b)
+              Math.hypot(a.x - predictedX, a.y - predictedY) <=
+              Math.hypot(b.x - predictedX, b.y - predictedY) ? a : b)
           : clusters.reduce((a, b) => (a.count >= b.count ? a : b));
         cx = best.x; cy = best.y; count = best.count; variance = best.variance;
       }
     }
 
     if (count === undefined || count < minPixels) {
-      this.confidence = Math.max(0, this.confidence - 0.15);
+      this.confidence = Math.max(0, this.confidence - CONFIDENCE_DECAY_PER_SEC * dtCall);
       if (this.confidence === 0) {
         // Fully lost: isActive() already goes false from confidence alone,
         // so the HUD stops drawing a crosshair. Deliberately keep the stale
@@ -315,8 +403,23 @@ export class BlobTracker {
     this.centroid = { x: cx, y: cy };
     this.radius = newRadius;
     this._smoothedRadius = this._smoothedRadius * 0.7 + newRadius * 0.3;
-    this.confidence = Math.min(1, this.confidence + 0.2);
+    this.confidence = Math.min(1, this.confidence + CONFIDENCE_GROWTH_PER_SEC * dtCall);
     this._lastTimestamp = timestampMs;
+
+    // Drift the calibrated color slowly toward what a strong, slow-moving
+    // lock is actually seeing (see COLOR_DRIFT_RATE above). Gated on the
+    // *locked* scan specifically — the full-frame reacquire branch above
+    // never accumulates sumCos/sumSin/sSum/vSum, since it may be sampling a
+    // different Top's blob entirely while lock is still unconfirmed.
+    if (locked && this.confidence > 0.7 && this.speed < COLOR_DRIFT_MAX_SPEED) {
+      let avgHue = (Math.atan2(sumSin / count, sumCos / count) * 180) / Math.PI;
+      if (avgHue < 0) avgHue += 360;
+      const avgSat = sSum / count;
+      const avgVal = vSum / count;
+      if (avgSat > COLOR_DRIFT_MIN_SAT) {
+        this._driftTargetColor(avgHue, avgSat, avgVal);
+      }
+    }
 
     this._history.push({ x: cx, y: cy, t: timestampMs });
     const cutoff = timestampMs - TRAIL_DURATION_MS;
